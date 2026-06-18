@@ -4,3 +4,4 @@ dist/
 .preview.out.log
 .preview.err.log
 .env
+data/gtfs-jp/_download/

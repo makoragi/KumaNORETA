@@ -76,6 +76,14 @@ VITE_GPS_OVERRIDE_ACCURACY_METERS=10
 pnpm build
 ```
 
+## GTFS-JP Sync
+```powershell
+pnpm gtfs:sync
+```
+
+`pnpm gtfs:sync` は熊本都市バスのGTFS-JP配信 (`https://km.bus-vision.jp/gtfs/toshibus/gtfsFeed`) を取得し、展開済みデータを `data/gtfs-jp/toshibus/` に、ブラウザ読込用の正規化JSONを `public/gtfs/toshibus-static.json` に生成します。
+詳細は [docs/gtfs-jp-sync.md](docs/gtfs-jp-sync.md) を参照してください。
+
 ## Local Preview
 
 GitHub Pages へ出る production build をローカルで確認するには、以下を実行します。

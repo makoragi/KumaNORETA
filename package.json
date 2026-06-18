@@ -8,6 +8,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "gtfs:sync": "powershell -ExecutionPolicy Bypass -File .\\scripts\\sync-gtfs-jp.ps1",
     "check:pages": "powershell -ExecutionPolicy Bypass -File .\\scripts\\local-build-check.ps1",
     "preview:pages": "powershell -ExecutionPolicy Bypass -File .\\scripts\\local-pages-preview.ps1"
   },

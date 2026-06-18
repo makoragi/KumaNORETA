@@ -17,13 +17,30 @@ export type Route = {
   shortName: string
   longName: string
   color: string
+  parentRouteId?: string
 }
 
 export type Trip = {
   id: string
   routeId: string
+  serviceId?: string
   headsign: string
+  directionId?: string
+  officeId?: string
   stopIds: string[]
+}
+
+export type GtfsFeedMetadata = {
+  publisherName: string
+  publisherUrl?: string
+  version: string
+  startDate: string
+  endDate: string
+  sourceUrl: string
+  fetchedAt: string
+  routeCount: number
+  stopCount: number
+  tripCount: number
 }
 
 export type VehiclePosition = {

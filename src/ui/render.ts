@@ -3,6 +3,40 @@ import type { BusCandidate, BusEstimationDiagnostics, Coordinates, EtaResult, St
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 
+export function renderLoadingApp(root: HTMLElement): void {
+  root.innerHTML = `
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">Kumamoto bus ride companion</p>
+        <h1>KumaNORETA</h1>
+        <p>GTFS-JP と車両データを読み込んでいます。</p>
+      </section>
+
+      <section class="card">
+        <h2>読み込み中</h2>
+        <p class="muted">初回は静的ダイヤデータの取得に少し時間がかかることがあります。</p>
+      </section>
+    </main>
+  `
+}
+
+export function renderFatalError(root: HTMLElement): void {
+  root.innerHTML = `
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">Kumamoto bus ride companion</p>
+        <h1>KumaNORETA</h1>
+        <p>アプリの初期化に失敗しました。</p>
+      </section>
+
+      <section class="card">
+        <h2>エラー</h2>
+        <p class="muted">ページを再読み込みしても改善しない場合は、ブラウザのキャッシュ削除を試してください。</p>
+      </section>
+    </main>
+  `
+}
+
 function renderCandidateItem(candidate: BusCandidate, rank: number): string {
   return `
     <li class="candidate-item">
