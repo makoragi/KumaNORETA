@@ -59,6 +59,17 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+現在地推定をテストしたい場合は、`.env` に以下を設定すると GPS を固定値で上書きできます。
+
+```bash
+VITE_GPS_OVERRIDE_ENABLED=true
+VITE_GPS_OVERRIDE_LATITUDE=32.8031
+VITE_GPS_OVERRIDE_LONGITUDE=130.7079
+VITE_GPS_OVERRIDE_ACCURACY_METERS=10
+```
+
+`VITE_GPS_OVERRIDE_ENABLED=true` のときだけ有効です。無効時は従来どおりブラウザ GPS を使い、取得できなければモック位置へフォールバックします。
+
 ## ビルド
 
 ```bash

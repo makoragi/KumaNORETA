@@ -16,6 +16,8 @@ export const mockStops: Stop[] = [
 
 export const mockRoutes: Route[] = [
   { id: 'route-a', shortName: 'A1-1', longName: '熊本駅前 → 水前寺公園前', color: '#0f766e' },
+  { id: 'route-b', shortName: 'B2-3', longName: '桜町バスターミナル → 健軍町', color: '#ea580c' },
+  { id: 'route-c', shortName: 'C4-2', longName: '熊本駅前 → 県庁前', color: '#2563eb' },
 ]
 
 export const mockTrips: Trip[] = [
@@ -24,6 +26,18 @@ export const mockTrips: Trip[] = [
     routeId: 'route-a',
     headsign: '水前寺公園前 行き',
     stopIds: mockStops.map((stop) => stop.id),
+  },
+  {
+    id: 'trip-b-daytime',
+    routeId: 'route-b',
+    headsign: '健軍町 行き',
+    stopIds: [mockStops[1].id, mockStops[2].id, mockStops[3].id],
+  },
+  {
+    id: 'trip-c-daytime',
+    routeId: 'route-c',
+    headsign: '県庁前 行き',
+    stopIds: [mockStops[0].id, mockStops[1].id, mockStops[2].id],
   },
 ]
 
@@ -34,6 +48,22 @@ export const mockVehicles: VehiclePosition[] = [
     latitude: 32.8025,
     longitude: 130.7098,
     bearing: 92,
+    timestamp: new Date(),
+  },
+  {
+    vehicleId: 'vehicle-104',
+    tripId: 'trip-b-daytime',
+    latitude: 32.8021,
+    longitude: 130.7064,
+    bearing: 75,
+    timestamp: new Date(),
+  },
+  {
+    vehicleId: 'vehicle-118',
+    tripId: 'trip-c-daytime',
+    latitude: 32.8046,
+    longitude: 130.7129,
+    bearing: 88,
     timestamp: new Date(),
   },
 ]

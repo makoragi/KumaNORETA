@@ -1,5 +1,8 @@
 import type { BusCandidate, Coordinates, Route, Trip, VehiclePosition } from '../types'
 
+const MAX_CANDIDATE_DISTANCE_METERS = 1_000
+const MAX_CANDIDATES = 3
+
 const toRadians = (degree: number) => (degree * Math.PI) / 180
 
 function distanceMeters(a: Coordinates, b: Pick<VehiclePosition, 'latitude' | 'longitude'>): number {
@@ -10,7 +13,91 @@ function distanceMeters(a: Coordinates, b: Pick<VehiclePosition, 'latitude' | 'l
   const lat2 = toRadians(b.latitude)
   const haversine =
     Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2
+
   return 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine))
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function calculateCandidateScore(distance: number, accuracyMeters: number, timestamp: Date): number {
+  const distanceScore = clamp(1 - distance / MAX_CANDIDATE_DISTANCE_METERS, 0, 1)
+  const accuracyPenalty = clamp(accuracyMeters / 200, 0, 0.25)
+  const vehicleAgeSeconds = Math.max(0, (Date.now() - timestamp.getTime()) / 1_000)
+  const freshnessScore = clamp(1 - vehicleAgeSeconds / 180, 0.2, 1)
+
+  return clamp(distanceScore * 0.8 + freshnessScore * 0.2 - accuracyPenalty, 0.1, 0.99)
+}
+
+export function rankBusCandidates(
+  position: Coordinates,
+  vehicles: VehiclePosition[],
+  trips: Trip[],
+  routes: Route[],
+): BusCandidate[] {
+  const tripsById = new Map(trips.map((trip) => [trip.id, trip]))
+  const routesById = new Map(routes.map((route) => [route.id, route]))
+
+  return vehicles
+    .map((vehicle) => {
+      const trip = tripsById.get(vehicle.tripId)
+      const route = trip ? routesById.get(trip.routeId) : undefined
+      if (!trip || !route) return undefined
+
+      const distance = distanceMeters(position, vehicle)
+      if (distance > MAX_CANDIDATE_DISTANCE_METERS) return undefined
+
+      const score = calculateCandidateScore(distance, position.accuracyMeters, vehicle.timestamp)
+      return {
+        trip,
+        route,
+        vehicle,
+        distanceMeters: distance,
+        score,
+        confidence: score,
+        reason: `GPS位置と車両位置の距離が約${Math.round(distance)}mです`,
+      }
+    })
+    .filter((candidate): candidate is BusCandidate => candidate !== undefined)
+    .sort((a, b) => {
+      if (a.distanceMeters !== b.distanceMeters) return a.distanceMeters - b.distanceMeters
+      if (b.score !== a.score) return b.score - a.score
+      return b.vehicle.timestamp.getTime() - a.vehicle.timestamp.getTime()
+    })
+    .slice(0, MAX_CANDIDATES)
+}
+
+export function collectBusEstimationDiagnostics(
+  position: Coordinates,
+  vehicles: VehiclePosition[],
+  trips: Trip[],
+  routes: Route[],
+): Pick<import('../types').BusEstimationDiagnostics, 'candidateCount' | 'matchedVehicles' | 'nearbyMatchedVehicles' | 'totalVehicles'> {
+  const tripsById = new Map(trips.map((trip) => [trip.id, trip]))
+  const routesById = new Map(routes.map((route) => [route.id, route]))
+
+  let matchedVehicles = 0
+  let nearbyMatchedVehicles = 0
+
+  for (const vehicle of vehicles) {
+    const trip = tripsById.get(vehicle.tripId)
+    const route = trip ? routesById.get(trip.routeId) : undefined
+    if (!trip || !route) continue
+
+    matchedVehicles += 1
+
+    if (distanceMeters(position, vehicle) <= MAX_CANDIDATE_DISTANCE_METERS) {
+      nearbyMatchedVehicles += 1
+    }
+  }
+
+  return {
+    totalVehicles: vehicles.length,
+    matchedVehicles,
+    nearbyMatchedVehicles,
+    candidateCount: Math.min(nearbyMatchedVehicles, MAX_CANDIDATES),
+  }
 }
 
 export function estimateCurrentBus(
@@ -19,23 +106,5 @@ export function estimateCurrentBus(
   trips: Trip[],
   routes: Route[],
 ): BusCandidate | undefined {
-  const candidates = vehicles
-    .map((vehicle) => {
-      const trip = trips.find((item) => item.id === vehicle.tripId)
-      const route = trip ? routes.find((item) => item.id === trip.routeId) : undefined
-      if (!trip || !route) return undefined
-
-      const distance = distanceMeters(position, vehicle)
-      const confidence = Math.max(0.1, Math.min(0.98, 1 - distance / 1_000))
-      return {
-        trip,
-        route,
-        vehicle,
-        confidence,
-        reason: `GPS位置と車両位置の距離が約${Math.round(distance)}mです`,
-      }
-    })
-    .filter((candidate): candidate is BusCandidate => candidate !== undefined)
-
-  return candidates.sort((a, b) => b.confidence - a.confidence)[0]
+  return rankBusCandidates(position, vehicles, trips, routes)[0]
 }

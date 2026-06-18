@@ -1,16 +1,35 @@
-import type { BusCandidate, Coordinates, EtaResult, Stop } from '../types'
+import type { BusCandidate, BusEstimationDiagnostics, Coordinates, EtaResult, Stop } from '../types'
 
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
+
+function renderCandidateItem(candidate: BusCandidate, rank: number): string {
+  return `
+    <li class="candidate-item">
+      <div class="candidate-item-header">
+        <p class="route" style="--route-color:${candidate.route.color}">${candidate.route.shortName}</p>
+        <p class="candidate-rank">候補 ${rank}</p>
+      </div>
+      <p class="candidate-title">${candidate.route.longName}</p>
+      <p class="muted">
+        距離 約${Math.round(candidate.distanceMeters)}m / 信頼度 ${Math.round(candidate.confidence * 100)}%
+      </p>
+      <p class="muted">${candidate.reason}</p>
+    </li>
+  `
+}
 
 export function renderApp(params: {
   root: HTMLElement
   position: Coordinates
   candidate?: BusCandidate
+  candidates: BusCandidate[]
+  diagnostics: BusEstimationDiagnostics
   eta?: EtaResult
   stops: Stop[]
 }): void {
-  const { root, position, candidate, eta, stops } = params
+  const { root, position, candidate, candidates, diagnostics, eta, stops } = params
+
   root.innerHTML = `
     <main class="app-shell">
       <section class="hero">
@@ -18,11 +37,13 @@ export function renderApp(params: {
         <h1>KumaNORETA</h1>
         <p>いま乗っているバスを推定し、降車停留所への到着予想時刻を表示します。</p>
       </section>
+
       <section class="card grid">
         <div>
           <h2>現在位置</h2>
           <p>緯度 ${position.latitude.toFixed(4)} / 経度 ${position.longitude.toFixed(4)}</p>
           <p class="muted">精度 約${Math.round(position.accuracyMeters)}m</p>
+          <p class="muted">位置ソース ${diagnostics.positionSource}</p>
         </div>
         <div>
           <h2>推定中のバス</h2>
@@ -30,13 +51,48 @@ export function renderApp(params: {
             candidate
               ? `<p class="route" style="--route-color:${candidate.route.color}">${candidate.route.shortName}</p>
                  <p>${candidate.route.longName}</p>
-                 <p class="muted">信頼度 ${Math.round(candidate.confidence * 100)}% / ${candidate.reason}</p>`
-              : '<p>候補が見つかりませんでした。</p>'
+                 <p class="muted">
+                   距離 約${Math.round(candidate.distanceMeters)}m / 信頼度 ${Math.round(candidate.confidence * 100)}%
+                 </p>
+                 <p class="muted">${candidate.reason}</p>`
+              : '<p>有力な候補はまだ見つかっていません。</p>'
           }
         </div>
       </section>
+
+      <section class="card diagnostics-card">
+        <div class="section-heading">
+          <h2>候補診断</h2>
+          <p class="muted">候補が出ないときの切り分け用です。</p>
+        </div>
+        <div class="diagnostics-grid">
+          <p><strong>車両ソース:</strong> ${diagnostics.vehicleSource}</p>
+          <p><strong>取得車両数:</strong> ${diagnostics.totalVehicles}件</p>
+          <p><strong>trip/route 紐付け成功:</strong> ${diagnostics.matchedVehicles}件</p>
+          <p><strong>1km以内の紐付け成功車両:</strong> ${diagnostics.nearbyMatchedVehicles}件</p>
+          <p><strong>表示候補数:</strong> ${diagnostics.candidateCount}件</p>
+        </div>
+        ${
+          diagnostics.note
+            ? `<p class="diagnostics-note">${diagnostics.note}</p>`
+            : ''
+        }
+      </section>
+
       <section class="card">
-        <h2>降車停留所とETA</h2>
+        <div class="section-heading">
+          <h2>近いバス候補</h2>
+          <p class="muted">GPS位置に近い順で最大3件を表示します。</p>
+        </div>
+        ${
+          candidates.length > 0
+            ? `<ol class="candidate-list">${candidates.map((item, index) => renderCandidateItem(item, index + 1)).join('')}</ol>`
+            : '<p>近いバス候補は見つかりませんでした。</p>'
+        }
+      </section>
+
+      <section class="card">
+        <h2>降車停留所と ETA</h2>
         <label for="destination">降車停留所</label>
         <select id="destination" disabled>
           ${stops.map((stop) => `<option ${eta?.stop.id === stop.id ? 'selected' : ''}>${stop.name}</option>`).join('')}
@@ -45,7 +101,7 @@ export function renderApp(params: {
           eta
             ? `<p class="eta">${eta.stop.name} に ${formatTime(eta.estimatedArrival)} ごろ到着予定</p>
                <p class="muted">あと約${eta.minutesUntilArrival}分（${eta.source === 'mock' ? 'モック計算' : 'GTFS-RT'}）</p>`
-            : '<p>到着予想を計算できませんでした。</p>'
+            : '<p>先頭候補が確定したら ETA を表示します。</p>'
         }
       </section>
     </main>

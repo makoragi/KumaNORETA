@@ -39,8 +39,20 @@ export type BusCandidate = {
   trip: Trip
   route: Route
   vehicle: VehiclePosition
+  distanceMeters: number
+  score: number
   confidence: number
   reason: string
+}
+
+export type BusEstimationDiagnostics = {
+  candidateCount: number
+  matchedVehicles: number
+  nearbyMatchedVehicles: number
+  note?: string
+  totalVehicles: number
+  vehicleSource: 'gtfs-rt' | 'mock'
+  positionSource: 'browser' | 'mock-fallback' | 'override'
 }
 
 export type EtaResult = {

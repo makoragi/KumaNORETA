@@ -60,6 +60,14 @@ h2 {
   gap: 24px;
 }
 
+.section-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
 .route {
   display: inline-flex;
   margin: 0 0 8px;
@@ -91,4 +99,66 @@ select {
 
 .muted {
   color: #64748b;
+}
+
+.candidate-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+
+.candidate-item {
+  padding: 18px;
+  border: 1px solid #dbe4ee;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.candidate-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.candidate-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.candidate-rank {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.candidate-item .muted {
+  margin: 4px 0 0;
+}
+
+.diagnostics-card {
+  background: #fffdf5;
+  border-color: #f5deb3;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 18px;
+}
+
+.diagnostics-grid p {
+  margin: 0;
+}
+
+.diagnostics-note {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff7d6;
+  color: #92400e;
 }
