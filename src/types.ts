@@ -60,6 +60,7 @@ export type BusCandidate = {
   score: number
   confidence: number
   reason: string
+  isWithinMatchingRange: boolean
 }
 
 export type BusEstimationDiagnostics = {
@@ -70,6 +71,11 @@ export type BusEstimationDiagnostics = {
   totalVehicles: number
   vehicleSource: 'gtfs-rt' | 'mock'
   positionSource: 'browser' | 'mock-fallback' | 'override'
+}
+
+export type NearbyStop = {
+  stop: Stop
+  distanceMeters: number
 }
 
 export type EtaResult = {
