@@ -22,9 +22,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: pnpm
+      - run: corepack enable
       - uses: actions/configure-pages@v5
-      - run: npm install
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
         env:
           VITE_GTFS_RT_TRIP_UPDATES_URL: ${{ vars.VITE_GTFS_RT_TRIP_UPDATES_URL || 'https://km.bus-vision.jp/realtime/toshibus_trip_update.bin' }}
           VITE_GTFS_RT_VEHICLE_POSITIONS_URL: ${{ vars.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || 'https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin' }}

@@ -42,8 +42,9 @@ $pnpm = Get-PnpmCommand
 $node = Get-NodeCommand
 
 if (-not (Test-Path (Join-Path $repoRoot 'node_modules'))) {
-  & $pnpm install
+  & $pnpm install --frozen-lockfile
 }
 
 & $pnpm build
-& $node (Join-Path $repoRoot 'node_modules\vite\bin\vite.js') preview --host 127.0.0.1 --port 4173
+Write-Host 'Open http://127.0.0.1:4173/KumaNORETA/ to preview the same base path as GitHub Pages.'
+& $node (Join-Path $repoRoot 'node_modules\vite\bin\vite.js') preview --host 127.0.0.1 --port 4173 --strictPort

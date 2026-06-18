@@ -1,6 +1,7 @@
 declare module '*.css'
 
 interface ImportMetaEnv {
+  readonly BASE_URL: string
   readonly VITE_GTFS_RT_API_KEY?: string
   readonly VITE_GTFS_RT_API_KEY_HEADER?: string
   readonly VITE_GTFS_RT_AUTH_TOKEN?: string

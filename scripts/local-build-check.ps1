@@ -27,7 +27,7 @@ Set-Location $repoRoot
 $pnpm = Get-PnpmCommand
 
 if (-not (Test-Path (Join-Path $repoRoot 'node_modules'))) {
-  & $pnpm install
+  & $pnpm install --frozen-lockfile
 }
 
 & $pnpm build
