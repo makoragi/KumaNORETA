@@ -1,0 +1,18 @@
+{
+  "name": "KumaNORETA（くまのれた）",
+  "short_name": "KumaNORETA",
+  "description": "熊本県内のバス乗車推定と降車停留所へのETA表示を支援するWebアプリ",
+  "start_url": "/KumaNORETA/",
+  "scope": "/KumaNORETA/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/KumaNORETA/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

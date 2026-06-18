@@ -98,9 +98,11 @@ class ProtoReader {
       case 1:
         this.offset += 8
         return
-      case 2:
-        this.offset += this.readVarint()
+      case 2: {
+        const length = this.readVarint()
+        this.offset += length
         return
+      }
       case 5:
         this.offset += 4
         return
