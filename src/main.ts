@@ -1,5 +1,5 @@
 import './style.css'
-import { collectBusEstimationDiagnostics, rankBusCandidates } from './domain/busEstimator'
+import { collectBusEstimationDiagnostics, findNearbyStops, rankBusCandidates } from './domain/busEstimator'
 import { calculateEta } from './domain/eta'
 import { getCurrentPosition } from './services/gps'
 import { loadStaticGtfsData } from './services/gtfsJp'
@@ -20,7 +20,8 @@ async function bootstrap() {
 
   const position = positionResult.position
   const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes)
-  const candidate = candidates[0]
+  const candidate = candidates.find((item) => item.isWithinMatchingRange)
+  const nearbyStops = findNearbyStops(position, staticData.stops)
   const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
   const stopsById = new Map(staticData.stops.map((stop) => [stop.id, stop]))
   const isMockVehicleSource = import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false'
@@ -42,7 +43,7 @@ async function bootstrap() {
         .filter((stop): stop is Stop => stop !== undefined)
     : []
 
-  renderApp({ root, position, candidate, candidates, diagnostics, eta, stops: candidateStops })
+  renderApp({ root, position, candidate, candidates, diagnostics, eta, stops: candidateStops, nearbyStops })
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
