@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.pnpm-store/
+.preview.out.log
+.preview.err.log
+.env

@@ -62,6 +62,17 @@ npm run dev
 npm run build
 ```
 
+## Local Preview
+
+GitHub Pages へ出る production build をローカルで確認するには、以下を実行します。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\local-build-check.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\local-pages-preview.ps1
+```
+
+`local-pages-preview.ps1` は `build` 後に `http://127.0.0.1:4173/KumaNORETA/` で preview を起動します。
+
 ## GitHub Pages公開
 
 GitHub Actionsの `Deploy to GitHub Pages` ワークフローで `dist/` をGitHub Pagesへデプロイします。

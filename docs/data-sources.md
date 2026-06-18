@@ -11,6 +11,19 @@
 - 配置場所: `data/gtfs-rt/` または外部エンドポイントから取得
 - 想定フィード: VehiclePositions, TripUpdates, ServiceAlerts
 - 注意点: CORS、APIキー、protobufデコード方法を確認する。
+- 熊本都市バスの公開GTFS-RT:
+  - `TripUpdates`: `https://km.bus-vision.jp/realtime/toshibus_trip_update.bin`
+  - `VehiclePositions`: `https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin`
+  - `Alerts`: `https://km.bus-vision.jp/realtime/toshibus_alrt_update.bin`
+- `VehiclePosition` 取得設定:
+  - 既定値は熊本都市バスの公開URLを使う
+  - `VITE_GTFS_RT_VEHICLE_POSITIONS_URL`: VehiclePositions の配信URL
+  - `VITE_GTFS_RT_TRIP_UPDATES_URL`: TripUpdates の配信URL
+  - `VITE_GTFS_RT_ALERTS_URL`: Alerts の配信URL
+  - `VITE_GTFS_RT_USE_MOCK`: `false` にすると実データ取得を有効化。未設定または `false` 以外はモックを使う
+  - `VITE_GTFS_RT_API_KEY`: 必要な場合のAPIキー
+  - `VITE_GTFS_RT_API_KEY_HEADER`: APIキー送信ヘッダ名。既定値は `x-api-key`
+  - `VITE_GTFS_RT_AUTH_TOKEN`: Bearer トークンが必要な場合に使用
 
 ## サンプルデータ
 
