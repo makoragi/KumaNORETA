@@ -109,6 +109,7 @@ export function renderApp(params: {
         </div>
         <div class="diagnostics-grid">
           <p><strong>車両ソース:</strong> ${diagnostics.vehicleSource}</p>
+          <p><strong>最終更新:</strong> ${formatTime(diagnostics.vehicleFetchedAt)}（15秒間隔）</p>
           <p><strong>取得車両数:</strong> ${diagnostics.totalVehicles}件</p>
           <p><strong>trip/route 紐付け成功:</strong> ${diagnostics.matchedVehicles}件</p>
           <p><strong>推定範囲内の紐付け成功車両:</strong> ${diagnostics.nearbyMatchedVehicles}件</p>
