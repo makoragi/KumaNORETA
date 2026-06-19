@@ -83,5 +83,17 @@ export type EtaResult = {
   stop: Stop
   estimatedArrival: Date
   minutesUntilArrival: number
-  source: 'mock' | 'gtfs-rt'
+  remainingDistanceMeters: number
+  source: 'mock' | 'gtfs-rt' | 'distance-model'
+}
+
+export type TripProgress = {
+  state: 'before-first-stop' | 'between-stops' | 'at-final-stop' | 'single-stop-trip'
+  previousStop?: Stop
+  nextStop?: Stop
+  previousStopIndex: number
+  nextStopIndex: number
+  segmentProgress: number
+  distanceFromPreviousStopMeters: number
+  distanceToNextStopMeters: number
 }

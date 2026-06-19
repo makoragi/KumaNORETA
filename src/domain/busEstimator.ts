@@ -54,6 +54,7 @@ export function rankBusCandidates(
       const score = calculateCandidateScore(distance, position.accuracyMeters, vehicle.timestamp)
       const matchingRange = BASE_MATCHING_RANGE_METERS + position.accuracyMeters
       const isWithinMatchingRange = distance <= matchingRange
+
       return {
         trip,
         route,
@@ -63,8 +64,8 @@ export function rankBusCandidates(
         confidence: score,
         isWithinMatchingRange,
         reason: isWithinMatchingRange
-          ? `位置情報の誤差を見込んだ約${Math.round(matchingRange)}mの範囲内です`
-          : '推定範囲外ですが、取得できた車両のうち現在地に近い順で表示しています',
+          ? `現在地の推定範囲である約${Math.round(matchingRange)}m以内にいます`
+          : '推定範囲外ですが、取得できた車両の中では現在地に近い候補です',
       }
     })
     .filter((candidate): candidate is BusCandidate => candidate !== undefined)

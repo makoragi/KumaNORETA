@@ -1,6 +1,6 @@
 import './style.css'
 import { collectBusEstimationDiagnostics, findNearbyStops, rankBusCandidates } from './domain/busEstimator'
-import { calculateEta } from './domain/eta'
+import { calculateEta, estimateTripProgress } from './domain/eta'
 import { getCurrentPosition } from './services/gps'
 import { loadStaticGtfsData } from './services/gtfsJp'
 import { fetchVehiclePositions } from './services/gtfsRt'
@@ -9,21 +9,22 @@ import { renderApp, renderFatalError, renderLoadingApp } from './ui/render'
 
 const VEHICLE_REFRESH_INTERVAL_MS = 15_000
 const SELECTED_TRIP_STORAGE_KEY = 'kumanoreta:selectedTripId'
+const SELECTED_DESTINATION_STORAGE_KEY = 'kumanoreta:selectedDestinationStopId'
 
-function loadPersistedSelectedTripId(): string | undefined {
+function loadPersistedValue(key: string): string | undefined {
   try {
-    return window.localStorage.getItem(SELECTED_TRIP_STORAGE_KEY) ?? undefined
+    return window.localStorage.getItem(key) ?? undefined
   } catch {
     return undefined
   }
 }
 
-function persistSelectedTripId(tripId?: string): void {
+function persistValue(key: string, value?: string): void {
   try {
-    if (tripId) {
-      window.localStorage.setItem(SELECTED_TRIP_STORAGE_KEY, tripId)
+    if (value) {
+      window.localStorage.setItem(key, value)
     } else {
-      window.localStorage.removeItem(SELECTED_TRIP_STORAGE_KEY)
+      window.localStorage.removeItem(key)
     }
   } catch {
     // Ignore storage failures and keep the in-memory selection.
@@ -43,7 +44,8 @@ async function bootstrap() {
   const isMockVehicleSource = import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false'
 
   let refreshInProgress = false
-  let selectedTripId: string | undefined = loadPersistedSelectedTripId()
+  let selectedTripId = loadPersistedValue(SELECTED_TRIP_STORAGE_KEY)
+  let selectedDestinationStopId = loadPersistedValue(SELECTED_DESTINATION_STORAGE_KEY)
   let selectedCandidate: BusCandidate | undefined
 
   const buildCandidateStops = (candidate?: BusCandidate): Stop[] =>
@@ -52,6 +54,12 @@ async function bootstrap() {
           .map((stopId) => stopsById.get(stopId))
           .filter((stop): stop is Stop => stop !== undefined)
       : []
+
+  const buildDestinationStops = (candidateStops: Stop[], nextStopIndex?: number): Stop[] => {
+    if (candidateStops.length === 0) return []
+    if (nextStopIndex === undefined) return candidateStops
+    return candidateStops.slice(Math.max(0, Math.min(nextStopIndex, candidateStops.length - 1)))
+  }
 
   const refreshVehicles = async () => {
     if (refreshInProgress) return
@@ -69,11 +77,20 @@ async function bootstrap() {
         : undefined
 
       const activeCandidate = selectedCandidate ?? estimatedCandidate
-      const destinationStopId = activeCandidate?.trip.stopIds.at(-1)
+      const candidateStops = buildCandidateStops(activeCandidate)
+      const tripProgress = activeCandidate ? estimateTripProgress(activeCandidate, staticData.stops) : undefined
+      const destinationStops = buildDestinationStops(candidateStops, tripProgress?.nextStopIndex)
+
+      if (!destinationStops.some((stop) => stop.id === selectedDestinationStopId)) {
+        selectedDestinationStopId = destinationStops.at(-1)?.id
+        persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
+      }
+
       const eta =
-        activeCandidate && destinationStopId
-          ? calculateEta(activeCandidate, destinationStopId, staticData.stops)
+        activeCandidate && selectedDestinationStopId
+          ? calculateEta(activeCandidate, selectedDestinationStopId, staticData.stops, tripProgress)
           : undefined
+
       const diagnostics: BusEstimationDiagnostics = {
         ...rawDiagnostics,
         candidateCount: candidates.length,
@@ -82,7 +99,7 @@ async function bootstrap() {
         vehicleSource: isMockVehicleSource ? 'mock' : 'gtfs-rt',
         note:
           !isMockVehicleSource && vehicles.length > 0 && rawDiagnostics.matchedVehicles === 0
-            ? '実GTFS-RTの tripId と静的GTFSの便データが一致していない可能性があります。'
+            ? 'GTFS-RT の tripId と静的 GTFS の便データが一致していない可能性があります。'
             : undefined,
       }
 
@@ -95,6 +112,7 @@ async function bootstrap() {
         estimatedCandidate,
         eta,
         nearbyStops,
+        destinationStops,
         onSelectCandidate: (tripId) => {
           if (selectedTripId === tripId) {
             selectedTripId = undefined
@@ -103,11 +121,19 @@ async function bootstrap() {
             selectedTripId = tripId
             selectedCandidate = candidates.find((candidate) => candidate.trip.id === tripId)
           }
-          persistSelectedTripId(selectedTripId)
+
+          persistValue(SELECTED_TRIP_STORAGE_KEY, selectedTripId)
           void refreshVehicles()
         },
+        onSelectDestination: (stopId) => {
+          selectedDestinationStopId = stopId
+          persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
+          void refreshVehicles()
+        },
+        selectedDestinationStopId,
         selectedTripId,
-        stops: buildCandidateStops(activeCandidate),
+        stops: candidateStops,
+        tripProgress,
       })
     } finally {
       refreshInProgress = false

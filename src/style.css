@@ -188,6 +188,12 @@ select {
   font-weight: 700;
 }
 
+.segment-note {
+  margin: 12px 0 0;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
 .status-badge {
   display: inline-block;
   margin: 0 0 8px;
