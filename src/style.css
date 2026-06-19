@@ -116,6 +116,11 @@ select {
   background: linear-gradient(180deg, #ffffff, #f8fafc);
 }
 
+.candidate-item-selected {
+  border-color: #0f766e;
+  box-shadow: inset 0 0 0 1px #0f766e;
+}
+
 .candidate-item-header {
   display: flex;
   align-items: center;
@@ -129,6 +134,28 @@ select {
   font-weight: 700;
 }
 
+.candidate-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.candidate-badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.candidate-badge-selected {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
 .candidate-rank {
   margin: 0;
   color: #475569;
@@ -138,6 +165,27 @@ select {
 
 .candidate-item .muted {
   margin: 4px 0 0;
+}
+
+.candidate-select-button {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  color: white;
+  background: #0f766e;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.candidate-select-button:hover {
+  background: #0d665f;
+}
+
+.selection-note {
+  margin: 12px 0 0;
+  color: #0f766e;
+  font-weight: 700;
 }
 
 .status-badge {
