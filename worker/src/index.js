@@ -1,4 +1,26 @@
 const CACHE_SECONDS = 10
+const DEFAULT_ALLOWED_ORIGIN = '*'
+
+function parseAllowedOrigins(value) {
+  return (value || DEFAULT_ALLOWED_ORIGIN)
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+}
+
+function resolveAllowedCorsOrigin(requestOrigin, configuredAllowedOrigin) {
+  const allowedOrigins = parseAllowedOrigins(configuredAllowedOrigin)
+
+  if (allowedOrigins.includes(DEFAULT_ALLOWED_ORIGIN)) {
+    return requestOrigin || DEFAULT_ALLOWED_ORIGIN
+  }
+
+  if (!requestOrigin) {
+    return allowedOrigins[0]
+  }
+
+  return allowedOrigins.includes(requestOrigin) ? requestOrigin : undefined
+}
 
 function corsHeaders(origin) {
   return {
@@ -14,18 +36,18 @@ export default {
   async fetch(request, env) {
     const requestUrl = new URL(request.url)
     const origin = request.headers.get('Origin')
-    const allowedOrigin = env.ALLOWED_ORIGIN
+    const allowedCorsOrigin = resolveAllowedCorsOrigin(origin, env.ALLOWED_ORIGIN)
 
     if (requestUrl.pathname !== '/vehicle-positions') {
       return new Response('Not found', { status: 404 })
     }
 
-    if (origin && origin !== allowedOrigin) {
+    if (origin && !allowedCorsOrigin) {
       return new Response('Origin not allowed', { status: 403 })
     }
 
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(allowedOrigin) })
+      return new Response(null, { status: 204, headers: corsHeaders(allowedCorsOrigin || DEFAULT_ALLOWED_ORIGIN) })
     }
 
     if (request.method !== 'GET') {
@@ -40,11 +62,11 @@ export default {
     if (!upstream.ok) {
       return new Response('Upstream GTFS-RT request failed', {
         status: 502,
-        headers: corsHeaders(allowedOrigin),
+        headers: corsHeaders(allowedCorsOrigin || DEFAULT_ALLOWED_ORIGIN),
       })
     }
 
-    const headers = new Headers(corsHeaders(allowedOrigin))
+    const headers = new Headers(corsHeaders(allowedCorsOrigin || DEFAULT_ALLOWED_ORIGIN))
     headers.set('Cache-Control', `public, max-age=${CACHE_SECONDS}`)
     headers.set('Content-Type', 'application/x-protobuf')
 
