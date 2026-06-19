@@ -265,19 +265,24 @@ function decodeVehiclePositions(buffer: ArrayBuffer): VehiclePosition[] {
   return vehicles
 }
 
-function getGtfsRtConfig(): GtfsRtConfig {
+function getVehiclePositionsUrl() {
   const proxyUrl = import.meta.env.VITE_GTFS_RT_PROXY_URL?.replace(/\/$/, '')
 
+  if (proxyUrl) {
+    return proxyUrl.endsWith('/vehicle-positions') ? proxyUrl : `${proxyUrl}/vehicle-positions`
+  }
+
+  return import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || DEFAULT_GTFS_RT_URLS.vehiclePositions
+}
+
+function getGtfsRtConfig(): GtfsRtConfig {
   return {
     apiKey: import.meta.env.VITE_GTFS_RT_API_KEY,
     apiKeyHeader: import.meta.env.VITE_GTFS_RT_API_KEY_HEADER ?? 'x-api-key',
     authToken: import.meta.env.VITE_GTFS_RT_AUTH_TOKEN,
     alertsUrl: import.meta.env.VITE_GTFS_RT_ALERTS_URL || DEFAULT_GTFS_RT_URLS.alerts,
     tripUpdatesUrl: import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL || DEFAULT_GTFS_RT_URLS.tripUpdates,
-    url:
-      (proxyUrl ? `${proxyUrl}/vehicle-positions` : undefined) ||
-      import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL ||
-      DEFAULT_GTFS_RT_URLS.vehiclePositions,
+    url: getVehiclePositionsUrl(),
     useMock: import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false',
   }
 }
