@@ -6,8 +6,8 @@ type GtfsRtConfig = {
   apiKeyHeader: string
   authToken?: string
   alertsUrl: string
-  tripUpdatesUrl: string
-  vehiclePositionsUrl: string
+  tripUpdatesUrls: string[]
+  vehiclePositionsUrls: string[]
   useMock: boolean
 }
 
@@ -475,19 +475,21 @@ function getProxyEndpoint(path: 'vehicle-positions' | 'trip-updates') {
 }
 
 function getGtfsRtConfig(): GtfsRtConfig {
+  const proxiedTripUpdatesUrl = getProxyEndpoint('trip-updates')
+  const proxiedVehiclePositionsUrl = getProxyEndpoint('vehicle-positions')
+  const directTripUpdatesUrl =
+    import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL || DEFAULT_GTFS_RT_URLS.tripUpdates
+  const directVehiclePositionsUrl =
+    import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || DEFAULT_GTFS_RT_URLS.vehiclePositions
+  const isDefined = (value: string | undefined): value is string => Boolean(value)
+
   return {
     apiKey: import.meta.env.VITE_GTFS_RT_API_KEY,
     apiKeyHeader: import.meta.env.VITE_GTFS_RT_API_KEY_HEADER ?? 'x-api-key',
     authToken: import.meta.env.VITE_GTFS_RT_AUTH_TOKEN,
     alertsUrl: import.meta.env.VITE_GTFS_RT_ALERTS_URL || DEFAULT_GTFS_RT_URLS.alerts,
-    tripUpdatesUrl:
-      getProxyEndpoint('trip-updates') ||
-      import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL ||
-      DEFAULT_GTFS_RT_URLS.tripUpdates,
-    vehiclePositionsUrl:
-      getProxyEndpoint('vehicle-positions') ||
-      import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL ||
-      DEFAULT_GTFS_RT_URLS.vehiclePositions,
+    tripUpdatesUrls: [...new Set([proxiedTripUpdatesUrl, directTripUpdatesUrl].filter(isDefined))],
+    vehiclePositionsUrls: [...new Set([proxiedVehiclePositionsUrl, directVehiclePositionsUrl].filter(isDefined))],
     useMock: import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false',
   }
 }
@@ -501,6 +503,21 @@ async function fetchGtfsRtBinary(url: string, config: GtfsRtConfig, label: strin
   return response.arrayBuffer()
 }
 
+async function fetchFirstSuccessfulGtfsRtBinary(urls: string[], config: GtfsRtConfig, label: string) {
+  let lastError: unknown
+
+  for (const url of urls) {
+    try {
+      return await fetchGtfsRtBinary(url, config, label)
+    } catch (error) {
+      lastError = error
+      console.warn(`Failed to fetch ${label} from ${url}`, error)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Failed to fetch GTFS-RT ${label}`)
+}
+
 export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
   const config = getGtfsRtConfig()
   if (config.useMock) {
@@ -508,7 +525,11 @@ export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
   }
 
   try {
-    const buffer = await fetchGtfsRtBinary(config.vehiclePositionsUrl, config, 'VehiclePositions')
+    const buffer = await fetchFirstSuccessfulGtfsRtBinary(
+      config.vehiclePositionsUrls,
+      config,
+      'VehiclePositions',
+    )
     return decodeVehiclePositions(buffer)
   } catch (error) {
     console.error('Failed to fetch GTFS-RT VehiclePositions', error)
@@ -523,7 +544,11 @@ export async function fetchTripUpdates(): Promise<TripUpdate[]> {
   }
 
   try {
-    const buffer = await fetchGtfsRtBinary(config.tripUpdatesUrl, config, 'TripUpdates')
+    const buffer = await fetchFirstSuccessfulGtfsRtBinary(
+      config.tripUpdatesUrls,
+      config,
+      'TripUpdates',
+    )
     return decodeTripUpdates(buffer)
   } catch (error) {
     console.error('Failed to fetch GTFS-RT TripUpdates', error)
