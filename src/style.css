@@ -140,6 +140,17 @@ select {
   margin: 4px 0 0;
 }
 
+.status-badge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: #92400e;
+  background: #fef3c7;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .diagnostics-card {
   background: #fffdf5;
   border-color: #f5deb3;

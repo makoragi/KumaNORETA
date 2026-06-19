@@ -32,8 +32,8 @@ jobs:
       - run: pnpm build
         env:
           VITE_GTFS_RT_TRIP_UPDATES_URL: ${{ vars.VITE_GTFS_RT_TRIP_UPDATES_URL || 'https://km.bus-vision.jp/realtime/toshibus_trip_update.bin' }}
-          VITE_GTFS_RT_VEHICLE_POSITIONS_URL: ${{ vars.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || 'https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin' }}
           VITE_GTFS_RT_ALERTS_URL: ${{ vars.VITE_GTFS_RT_ALERTS_URL || 'https://km.bus-vision.jp/realtime/toshibus_alrt_update.bin' }}
+          VITE_GTFS_RT_PROXY_URL: ${{ vars.VITE_GTFS_RT_PROXY_URL }}
           VITE_GTFS_RT_USE_MOCK: ${{ vars.VITE_GTFS_RT_USE_MOCK || 'false' }}
           VITE_GTFS_RT_API_KEY: ${{ vars.VITE_GTFS_RT_API_KEY }}
           VITE_GTFS_RT_API_KEY_HEADER: ${{ vars.VITE_GTFS_RT_API_KEY_HEADER || 'x-api-key' }}

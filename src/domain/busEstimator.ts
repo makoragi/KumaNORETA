@@ -1,11 +1,15 @@
-import type { BusCandidate, Coordinates, Route, Trip, VehiclePosition } from '../types'
+import type { BusCandidate, Coordinates, NearbyStop, Route, Stop, Trip, VehiclePosition } from '../types'
 
-const MAX_CANDIDATE_DISTANCE_METERS = 1_000
+const BASE_MATCHING_RANGE_METERS = 2_000
 const MAX_CANDIDATES = 3
+const MAX_NEARBY_STOPS = 3
 
 const toRadians = (degree: number) => (degree * Math.PI) / 180
 
-function distanceMeters(a: Coordinates, b: Pick<VehiclePosition, 'latitude' | 'longitude'>): number {
+export function distanceMeters(
+  a: Pick<Coordinates, 'latitude' | 'longitude'>,
+  b: Pick<VehiclePosition, 'latitude' | 'longitude'>,
+): number {
   const earthRadiusMeters = 6_371_000
   const deltaLat = toRadians(b.latitude - a.latitude)
   const deltaLon = toRadians(b.longitude - a.longitude)
@@ -22,7 +26,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function calculateCandidateScore(distance: number, accuracyMeters: number, timestamp: Date): number {
-  const distanceScore = clamp(1 - distance / MAX_CANDIDATE_DISTANCE_METERS, 0, 1)
+  const matchingRange = BASE_MATCHING_RANGE_METERS + accuracyMeters
+  const distanceScore = clamp(1 - distance / matchingRange, 0, 1)
   const accuracyPenalty = clamp(accuracyMeters / 200, 0, 0.25)
   const vehicleAgeSeconds = Math.max(0, (Date.now() - timestamp.getTime()) / 1_000)
   const freshnessScore = clamp(1 - vehicleAgeSeconds / 180, 0.2, 1)
@@ -46,9 +51,9 @@ export function rankBusCandidates(
       if (!trip || !route) return undefined
 
       const distance = distanceMeters(position, vehicle)
-      if (distance > MAX_CANDIDATE_DISTANCE_METERS) return undefined
-
       const score = calculateCandidateScore(distance, position.accuracyMeters, vehicle.timestamp)
+      const matchingRange = BASE_MATCHING_RANGE_METERS + position.accuracyMeters
+      const isWithinMatchingRange = distance <= matchingRange
       return {
         trip,
         route,
@@ -56,7 +61,10 @@ export function rankBusCandidates(
         distanceMeters: distance,
         score,
         confidence: score,
-        reason: `GPS位置と車両位置の距離が約${Math.round(distance)}mです`,
+        isWithinMatchingRange,
+        reason: isWithinMatchingRange
+          ? `位置情報の誤差を見込んだ約${Math.round(matchingRange)}mの範囲内です`
+          : '推定範囲外ですが、取得できた車両のうち現在地に近い順で表示しています',
       }
     })
     .filter((candidate): candidate is BusCandidate => candidate !== undefined)
@@ -87,7 +95,7 @@ export function collectBusEstimationDiagnostics(
 
     matchedVehicles += 1
 
-    if (distanceMeters(position, vehicle) <= MAX_CANDIDATE_DISTANCE_METERS) {
+    if (distanceMeters(position, vehicle) <= BASE_MATCHING_RANGE_METERS + position.accuracyMeters) {
       nearbyMatchedVehicles += 1
     }
   }
@@ -98,6 +106,13 @@ export function collectBusEstimationDiagnostics(
     nearbyMatchedVehicles,
     candidateCount: Math.min(nearbyMatchedVehicles, MAX_CANDIDATES),
   }
+}
+
+export function findNearbyStops(position: Coordinates, stops: Stop[]): NearbyStop[] {
+  return stops
+    .map((stop) => ({ stop, distanceMeters: distanceMeters(position, stop) }))
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, MAX_NEARBY_STOPS)
 }
 
 export function estimateCurrentBus(
