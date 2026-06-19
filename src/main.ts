@@ -3,7 +3,11 @@ import { collectBusEstimationDiagnostics, findNearbyStops, rankBusCandidates } f
 import { calculateEta, estimateTripProgress } from './domain/eta'
 import { getCurrentPosition } from './services/gps'
 import { loadStaticGtfsData } from './services/gtfsJp'
-import { fetchTripUpdates, fetchVehiclePositions } from './services/gtfsRt'
+import {
+  fetchTripUpdatesWithStatus,
+  fetchVehiclePositions,
+  type GtfsRtCollectionFetchStatus,
+} from './services/gtfsRt'
 import type { BusCandidate, BusEstimationDiagnostics, Stop, TripUpdate } from './types'
 import { renderApp, renderFatalError, renderLoadingApp } from './ui/render'
 
@@ -70,8 +74,12 @@ async function bootstrap() {
     refreshInProgress = true
 
     try {
-      const [vehicles, tripUpdates] = await Promise.all([fetchVehiclePositions(), fetchTripUpdates()])
+      const [vehicles, tripUpdatesResult] = await Promise.all([
+        fetchVehiclePositions(),
+        fetchTripUpdatesWithStatus(),
+      ])
       const vehicleFetchedAt = new Date()
+      const tripUpdates = tripUpdatesResult.tripUpdates
       const tripUpdatesByTripId = buildTripUpdatesByTripId(tripUpdates)
       const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes)
       const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
@@ -139,6 +147,7 @@ async function bootstrap() {
         selectedDestinationStopId,
         selectedTripId,
         stops: candidateStops,
+        tripUpdatesFetchStatus: tripUpdatesResult.status as GtfsRtCollectionFetchStatus,
         tripUpdatesByTripId,
         tripProgress,
       })

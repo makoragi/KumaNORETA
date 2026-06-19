@@ -1,6 +1,13 @@
 import { mockTripUpdates, mockVehicles } from '../mocks/mockData'
 import type { TripUpdate, VehiclePosition } from '../types'
 
+export type GtfsRtCollectionFetchStatus = 'ok' | 'failed' | 'mock'
+
+export type TripUpdatesFetchResult = {
+  status: GtfsRtCollectionFetchStatus
+  tripUpdates: TripUpdate[]
+}
+
 type GtfsRtConfig = {
   apiKey?: string
   apiKeyHeader: string
@@ -538,9 +545,17 @@ export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
 }
 
 export async function fetchTripUpdates(): Promise<TripUpdate[]> {
+  const result = await fetchTripUpdatesWithStatus()
+  return result.tripUpdates
+}
+
+export async function fetchTripUpdatesWithStatus(): Promise<TripUpdatesFetchResult> {
   const config = getGtfsRtConfig()
   if (config.useMock) {
-    return mockTripUpdates
+    return {
+      status: 'mock',
+      tripUpdates: mockTripUpdates,
+    }
   }
 
   try {
@@ -549,9 +564,15 @@ export async function fetchTripUpdates(): Promise<TripUpdate[]> {
       config,
       'TripUpdates',
     )
-    return decodeTripUpdates(buffer)
+    return {
+      status: 'ok',
+      tripUpdates: decodeTripUpdates(buffer),
+    }
   } catch (error) {
     console.error('Failed to fetch GTFS-RT TripUpdates', error)
-    return []
+    return {
+      status: 'failed',
+      tripUpdates: [],
+    }
   }
 }

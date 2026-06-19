@@ -1,3 +1,4 @@
+import type { GtfsRtCollectionFetchStatus } from '../services/gtfsRt'
 import type {
   BusCandidate,
   BusEstimationDiagnostics,
@@ -9,35 +10,66 @@ import type {
   TripUpdate,
 } from '../types'
 
+type DelayPresentation = {
+  badgeClass: string
+  badgeText: string
+  detailText: string
+}
+
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 
-function formatDelayText(tripUpdate?: TripUpdate): string {
-  if (!tripUpdate || tripUpdate.delaySeconds === undefined) {
-    return '遅延情報なし'
+function resolveDelayPresentation(
+  tripUpdate: TripUpdate | undefined,
+  tripUpdatesFetchStatus: GtfsRtCollectionFetchStatus,
+): DelayPresentation {
+  if (tripUpdatesFetchStatus === 'failed') {
+    return {
+      badgeClass: 'delay-badge-unknown',
+      badgeText: '取得失敗',
+      detailText: '遅延情報の取得に失敗',
+    }
+  }
+
+  if (!tripUpdate) {
+    return {
+      badgeClass: 'delay-badge-unknown',
+      badgeText: '情報なし',
+      detailText:
+        tripUpdatesFetchStatus === 'mock' ? 'モックの遅延情報を表示中' : 'この便の遅延情報は未配信',
+    }
+  }
+
+  if (tripUpdate.delaySeconds === undefined) {
+    return {
+      badgeClass: 'delay-badge-unknown',
+      badgeText: '未提供',
+      detailText: '遅延情報未提供',
+    }
   }
 
   const roundedMinutes = Math.round(Math.abs(tripUpdate.delaySeconds) / 60)
   if (roundedMinutes === 0) {
-    return 'ほぼ定刻'
+    return {
+      badgeClass: 'delay-badge-on-time',
+      badgeText: '定刻',
+      detailText: '遅延なし',
+    }
   }
 
-  return tripUpdate.delaySeconds > 0 ? `${roundedMinutes}分遅れ` : `${roundedMinutes}分早着`
-}
-
-function renderDelayBadge(tripUpdate?: TripUpdate): string {
-  if (!tripUpdate || tripUpdate.delaySeconds === undefined) {
-    return '<span class="delay-badge delay-badge-unknown">遅延情報なし</span>'
+  if (tripUpdate.delaySeconds > 0) {
+    return {
+      badgeClass: 'delay-badge-late',
+      badgeText: `${roundedMinutes}分遅れ`,
+      detailText: `${roundedMinutes}分遅れ`,
+    }
   }
 
-  const roundedMinutes = Math.round(Math.abs(tripUpdate.delaySeconds) / 60)
-  if (roundedMinutes === 0) {
-    return '<span class="delay-badge delay-badge-on-time">定刻</span>'
+  return {
+    badgeClass: 'delay-badge-early',
+    badgeText: `${roundedMinutes}分早着`,
+    detailText: `${roundedMinutes}分早着`,
   }
-
-  return tripUpdate.delaySeconds > 0
-    ? `<span class="delay-badge delay-badge-late">${roundedMinutes}分遅れ</span>`
-    : `<span class="delay-badge delay-badge-early">${roundedMinutes}分早着</span>`
 }
 
 function renderCandidateCard(params: {
@@ -46,10 +78,12 @@ function renderCandidateCard(params: {
   rank: number
   selectedTripId?: string
   tripUpdate?: TripUpdate
+  tripUpdatesFetchStatus: GtfsRtCollectionFetchStatus
 }): string {
-  const { candidate, estimatedTripId, rank, selectedTripId, tripUpdate } = params
+  const { candidate, estimatedTripId, rank, selectedTripId, tripUpdate, tripUpdatesFetchStatus } = params
   const isEstimated = candidate.trip.id === estimatedTripId
   const isSelected = candidate.trip.id === selectedTripId
+  const delayPresentation = resolveDelayPresentation(tripUpdate, tripUpdatesFetchStatus)
 
   return `
     <li class="candidate-item ${isSelected ? 'candidate-item-selected' : ''}">
@@ -63,7 +97,7 @@ function renderCandidateCard(params: {
       </div>
       <p class="candidate-title">${candidate.route.longName}</p>
       ${candidate.isWithinMatchingRange ? '' : '<p class="status-badge">推定範囲外</p>'}
-      <p class="muted">${formatDelayText(tripUpdate)}</p>
+      <p class="muted">遅延: ${delayPresentation.detailText}</p>
       <p class="muted">距離 約${Math.round(candidate.distanceMeters)}m / 信頼度 ${Math.round(candidate.confidence * 100)}%</p>
       <p class="muted">${candidate.reason}</p>
       <button class="candidate-select-button" data-trip-id="${candidate.trip.id}" type="button">
@@ -142,6 +176,7 @@ export function renderApp(params: {
   selectedTripId?: string
   stops: Stop[]
   tripUpdatesByTripId: Map<string, TripUpdate>
+  tripUpdatesFetchStatus: GtfsRtCollectionFetchStatus
   tripProgress?: TripProgress
 }): void {
   const {
@@ -161,6 +196,7 @@ export function renderApp(params: {
     selectedTripId,
     stops,
     tripUpdatesByTripId,
+    tripUpdatesFetchStatus,
     tripProgress,
   } = params
 
@@ -177,6 +213,8 @@ export function renderApp(params: {
 
   const nearbyStopsSummary =
     nearbyStops.length > 0 ? `近い停留所を表示する (${nearbyStops.length}件)` : '近い停留所を表示する'
+
+  const activeDelayPresentation = resolveDelayPresentation(activeTripUpdate, tripUpdatesFetchStatus)
 
   root.innerHTML = `
     <main class="app-shell">
@@ -218,7 +256,10 @@ export function renderApp(params: {
               ? `
                 <p class="route" style="--route-color:${activeCandidate.route.color}">${activeCandidate.route.shortName}</p>
                 <p class="candidate-title primary-title">${activeCandidate.route.longName}</p>
-                <p class="delay-summary">${renderDelayBadge(activeTripUpdate)}<span>${formatDelayText(activeTripUpdate)}</span></p>
+                <p class="delay-summary">
+                  <span class="delay-badge ${activeDelayPresentation.badgeClass}">${activeDelayPresentation.badgeText}</span>
+                  <span>${activeDelayPresentation.detailText}</span>
+                </p>
                 <p class="muted">距離 約${Math.round(activeCandidate.distanceMeters)}m / 信頼度 ${Math.round(activeCandidate.confidence * 100)}%</p>
                 <p class="segment-note">現在位置: ${renderCurrentSegment(tripProgress)}</p>
                 <p class="muted">${activeCandidate.reason}</p>
@@ -288,6 +329,7 @@ export function renderApp(params: {
                         rank: index + 1,
                         selectedTripId,
                         tripUpdate: tripUpdatesByTripId.get(candidate.trip.id),
+                        tripUpdatesFetchStatus,
                       }),
                     )
                     .join('')}
@@ -341,6 +383,7 @@ export function renderApp(params: {
             <p><strong>trip/route 一致数:</strong> ${diagnostics.matchedVehicles} 台</p>
             <p><strong>推定範囲内の一致:</strong> ${diagnostics.nearbyMatchedVehicles} 台</p>
             <p><strong>表示候補数:</strong> ${diagnostics.candidateCount} 件</p>
+            <p><strong>TripUpdates取得:</strong> ${tripUpdatesFetchStatus}</p>
           </div>
           ${diagnostics.note ? `<p class="diagnostics-note">${diagnostics.note}</p>` : ''}
         </div>
