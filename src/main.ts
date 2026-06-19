@@ -3,13 +3,17 @@ import { collectBusEstimationDiagnostics, findNearbyStops, rankBusCandidates } f
 import { calculateEta, estimateTripProgress } from './domain/eta'
 import { getCurrentPosition } from './services/gps'
 import { loadStaticGtfsData } from './services/gtfsJp'
-import { fetchVehiclePositions } from './services/gtfsRt'
-import type { BusCandidate, BusEstimationDiagnostics, Stop } from './types'
+import { fetchTripUpdates, fetchVehiclePositions } from './services/gtfsRt'
+import type { BusCandidate, BusEstimationDiagnostics, Stop, TripUpdate } from './types'
 import { renderApp, renderFatalError, renderLoadingApp } from './ui/render'
 
 const VEHICLE_REFRESH_INTERVAL_MS = 15_000
 const SELECTED_TRIP_STORAGE_KEY = 'kumanoreta:selectedTripId'
 const SELECTED_DESTINATION_STORAGE_KEY = 'kumanoreta:selectedDestinationStopId'
+
+function buildTripUpdatesByTripId(tripUpdates: TripUpdate[]) {
+  return new Map(tripUpdates.map((tripUpdate) => [tripUpdate.tripId, tripUpdate]))
+}
 
 function loadPersistedValue(key: string): string | undefined {
   try {
@@ -66,8 +70,9 @@ async function bootstrap() {
     refreshInProgress = true
 
     try {
-      const vehicles = await fetchVehiclePositions()
+      const [vehicles, tripUpdates] = await Promise.all([fetchVehiclePositions(), fetchTripUpdates()])
       const vehicleFetchedAt = new Date()
+      const tripUpdatesByTripId = buildTripUpdatesByTripId(tripUpdates)
       const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes)
       const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
       const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
@@ -107,6 +112,7 @@ async function bootstrap() {
         root,
         position,
         activeCandidate,
+        activeTripUpdate: activeCandidate ? tripUpdatesByTripId.get(activeCandidate.trip.id) : undefined,
         candidates,
         diagnostics,
         estimatedCandidate,
@@ -133,6 +139,7 @@ async function bootstrap() {
         selectedDestinationStopId,
         selectedTripId,
         stops: candidateStops,
+        tripUpdatesByTripId,
         tripProgress,
       })
     } finally {

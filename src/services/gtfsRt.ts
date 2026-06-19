@@ -1,5 +1,5 @@
-import { mockVehicles } from '../mocks/mockData'
-import type { VehiclePosition } from '../types'
+import { mockTripUpdates, mockVehicles } from '../mocks/mockData'
+import type { TripUpdate, VehiclePosition } from '../types'
 
 type GtfsRtConfig = {
   apiKey?: string
@@ -7,7 +7,7 @@ type GtfsRtConfig = {
   authToken?: string
   alertsUrl: string
   tripUpdatesUrl: string
-  url: string
+  vehiclePositionsUrl: string
   useMock: boolean
 }
 
@@ -24,6 +24,21 @@ type ParsedVehiclePosition = {
   timestamp?: number
   tripId?: string
   vehicleId?: string
+}
+
+type ParsedStopTimeDelay = {
+  stopId?: string
+  stopSequence?: number
+  arrivalDelaySeconds?: number
+  departureDelaySeconds?: number
+}
+
+type ParsedTripUpdate = {
+  tripId?: string
+  vehicleId?: string
+  delaySeconds?: number
+  stopTimeDelays: ParsedStopTimeDelay[]
+  timestamp?: number
 }
 
 class ProtoReader {
@@ -66,7 +81,7 @@ class ProtoReader {
     }
   }
 
-  readVarint() {
+  private readVarintBigInt() {
     let result = 0n
     let shift = 0n
 
@@ -79,21 +94,31 @@ class ProtoReader {
       result |= BigInt(byte & 0x7f) << shift
 
       if ((byte & 0x80) === 0) {
-        const numeric = Number(result)
-        if (!Number.isSafeInteger(numeric)) {
-          throw new Error('Protobuf varint exceeds safe integer range')
-        }
-        return numeric
+        return result
       }
 
       shift += 7n
     }
   }
 
+  readVarint() {
+    const raw = this.readVarintBigInt()
+    const numeric = Number(raw)
+    if (!Number.isSafeInteger(numeric)) {
+      throw new Error('Protobuf varint exceeds safe integer range')
+    }
+
+    return numeric
+  }
+
+  readInt32() {
+    return Number(BigInt.asIntN(32, this.readVarintBigInt()))
+  }
+
   skip(wireType: number) {
     switch (wireType) {
       case 0:
-        this.readVarint()
+        this.readVarintBigInt()
         return
       case 1:
         this.offset += 8
@@ -215,20 +240,134 @@ function parseVehiclePositionMessage(reader: ProtoReader) {
   return parsed
 }
 
-function parseFeedEntity(reader: ProtoReader) {
-  let vehiclePosition: ParsedVehiclePosition | undefined
+function parseStopTimeEvent(reader: ProtoReader) {
+  let delaySeconds: number | undefined
 
   while (!reader.eof) {
     const { fieldNumber, wireType } = reader.readTag()
-    if (fieldNumber === 4 && wireType === 2) {
-      vehiclePosition = parseVehiclePositionMessage(new ProtoReader(reader.readLengthDelimited()))
+
+    if (fieldNumber === 1 && wireType === 0) {
+      delaySeconds = reader.readInt32()
       continue
     }
 
     reader.skip(wireType)
   }
 
-  return vehiclePosition
+  return delaySeconds
+}
+
+function parseStopTimeUpdate(reader: ProtoReader) {
+  const parsed: ParsedStopTimeDelay = {}
+
+  while (!reader.eof) {
+    const { fieldNumber, wireType } = reader.readTag()
+
+    switch (fieldNumber) {
+      case 1:
+        if (wireType === 0) {
+          parsed.stopSequence = reader.readVarint()
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 2:
+        if (wireType === 2) {
+          parsed.arrivalDelaySeconds = parseStopTimeEvent(new ProtoReader(reader.readLengthDelimited()))
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 3:
+        if (wireType === 2) {
+          parsed.departureDelaySeconds = parseStopTimeEvent(new ProtoReader(reader.readLengthDelimited()))
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 4:
+        if (wireType === 2) {
+          parsed.stopId = reader.readString()
+          break
+        }
+        reader.skip(wireType)
+        break
+      default:
+        reader.skip(wireType)
+    }
+  }
+
+  return parsed
+}
+
+function parseTripUpdateMessage(reader: ProtoReader) {
+  const parsed: ParsedTripUpdate = { stopTimeDelays: [] }
+
+  while (!reader.eof) {
+    const { fieldNumber, wireType } = reader.readTag()
+
+    switch (fieldNumber) {
+      case 1:
+        if (wireType === 2) {
+          parsed.tripId = parseTripDescriptor(new ProtoReader(reader.readLengthDelimited()))
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 2:
+        if (wireType === 2) {
+          parsed.vehicleId = parseVehicleDescriptor(new ProtoReader(reader.readLengthDelimited()))
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 3:
+        if (wireType === 2) {
+          parsed.stopTimeDelays.push(parseStopTimeUpdate(new ProtoReader(reader.readLengthDelimited())))
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 4:
+        if (wireType === 0) {
+          parsed.timestamp = reader.readVarint()
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 5:
+        if (wireType === 0) {
+          parsed.delaySeconds = reader.readInt32()
+          break
+        }
+        reader.skip(wireType)
+        break
+      default:
+        reader.skip(wireType)
+    }
+  }
+
+  return parsed
+}
+
+function parseFeedEntity<T>(
+  reader: ProtoReader,
+  fieldNumber: number,
+  parser: (nestedReader: ProtoReader) => T,
+) {
+  let parsed: T | undefined
+
+  while (!reader.eof) {
+    const tag = reader.readTag()
+    if (tag.fieldNumber === fieldNumber && tag.wireType === 2) {
+      parsed = parser(new ProtoReader(reader.readLengthDelimited()))
+      continue
+    }
+
+    reader.skip(tag.wireType)
+  }
+
+  return parsed
 }
 
 function decodeVehiclePositions(buffer: ArrayBuffer): VehiclePosition[] {
@@ -242,7 +381,7 @@ function decodeVehiclePositions(buffer: ArrayBuffer): VehiclePosition[] {
       continue
     }
 
-    const entity = parseFeedEntity(new ProtoReader(reader.readLengthDelimited()))
+    const entity = parseFeedEntity(new ProtoReader(reader.readLengthDelimited()), 4, parseVehiclePositionMessage)
     if (
       !entity?.vehicleId ||
       !entity.tripId ||
@@ -265,34 +404,53 @@ function decodeVehiclePositions(buffer: ArrayBuffer): VehiclePosition[] {
   return vehicles
 }
 
-function getVehiclePositionsUrl() {
-  const proxyUrl = import.meta.env.VITE_GTFS_RT_PROXY_URL?.replace(/\/$/, '')
-
-  if (proxyUrl) {
-    return proxyUrl.endsWith('/vehicle-positions') ? proxyUrl : `${proxyUrl}/vehicle-positions`
+function resolveTripDelay(entity: ParsedTripUpdate) {
+  if (entity.delaySeconds !== undefined) {
+    return entity.delaySeconds
   }
 
-  return import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || DEFAULT_GTFS_RT_URLS.vehiclePositions
+  for (const stopTimeDelay of entity.stopTimeDelays) {
+    if (stopTimeDelay.departureDelaySeconds !== undefined) {
+      return stopTimeDelay.departureDelaySeconds
+    }
+
+    if (stopTimeDelay.arrivalDelaySeconds !== undefined) {
+      return stopTimeDelay.arrivalDelaySeconds
+    }
+  }
+
+  return undefined
 }
 
-function getGtfsRtConfig(): GtfsRtConfig {
-  return {
-    apiKey: import.meta.env.VITE_GTFS_RT_API_KEY,
-    apiKeyHeader: import.meta.env.VITE_GTFS_RT_API_KEY_HEADER ?? 'x-api-key',
-    authToken: import.meta.env.VITE_GTFS_RT_AUTH_TOKEN,
-    alertsUrl: import.meta.env.VITE_GTFS_RT_ALERTS_URL || DEFAULT_GTFS_RT_URLS.alerts,
-    tripUpdatesUrl: import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL || DEFAULT_GTFS_RT_URLS.tripUpdates,
-    url: getVehiclePositionsUrl(),
-    useMock: import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false',
+function decodeTripUpdates(buffer: ArrayBuffer): TripUpdate[] {
+  const reader = new ProtoReader(new Uint8Array(buffer))
+  const tripUpdates: TripUpdate[] = []
+
+  while (!reader.eof) {
+    const { fieldNumber, wireType } = reader.readTag()
+    if (fieldNumber !== 2 || wireType !== 2) {
+      reader.skip(wireType)
+      continue
+    }
+
+    const entity = parseFeedEntity(new ProtoReader(reader.readLengthDelimited()), 3, parseTripUpdateMessage)
+    if (!entity?.tripId) {
+      continue
+    }
+
+    tripUpdates.push({
+      tripId: entity.tripId,
+      vehicleId: entity.vehicleId,
+      delaySeconds: resolveTripDelay(entity),
+      stopTimeDelays: entity.stopTimeDelays,
+      timestamp: new Date((entity.timestamp ?? Math.trunc(Date.now() / 1000)) * 1000),
+    })
   }
+
+  return tripUpdates
 }
 
-export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
-  const config = getGtfsRtConfig()
-  if (config.useMock) {
-    return mockVehicles
-  }
-
+function buildHeaders(config: GtfsRtConfig) {
   const headers = new Headers({
     Accept: 'application/x-protobuf',
   })
@@ -305,15 +463,70 @@ export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
     headers.set('Authorization', `Bearer ${config.authToken}`)
   }
 
-  try {
-    const response = await fetch(config.url, { headers })
-    if (!response.ok) {
-      throw new Error(`GTFS-RT VehiclePositions request failed with ${response.status}`)
-    }
+  return headers
+}
 
-    return decodeVehiclePositions(await response.arrayBuffer())
+function getProxyEndpoint(path: 'vehicle-positions' | 'trip-updates') {
+  const proxyUrl = import.meta.env.VITE_GTFS_RT_PROXY_URL?.replace(/\/$/, '')
+
+  if (!proxyUrl) return undefined
+  if (proxyUrl.endsWith(`/${path}`)) return proxyUrl
+  return `${proxyUrl}/${path}`
+}
+
+function getGtfsRtConfig(): GtfsRtConfig {
+  return {
+    apiKey: import.meta.env.VITE_GTFS_RT_API_KEY,
+    apiKeyHeader: import.meta.env.VITE_GTFS_RT_API_KEY_HEADER ?? 'x-api-key',
+    authToken: import.meta.env.VITE_GTFS_RT_AUTH_TOKEN,
+    alertsUrl: import.meta.env.VITE_GTFS_RT_ALERTS_URL || DEFAULT_GTFS_RT_URLS.alerts,
+    tripUpdatesUrl:
+      getProxyEndpoint('trip-updates') ||
+      import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL ||
+      DEFAULT_GTFS_RT_URLS.tripUpdates,
+    vehiclePositionsUrl:
+      getProxyEndpoint('vehicle-positions') ||
+      import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL ||
+      DEFAULT_GTFS_RT_URLS.vehiclePositions,
+    useMock: import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false',
+  }
+}
+
+async function fetchGtfsRtBinary(url: string, config: GtfsRtConfig, label: string) {
+  const response = await fetch(url, { headers: buildHeaders(config) })
+  if (!response.ok) {
+    throw new Error(`GTFS-RT ${label} request failed with ${response.status}`)
+  }
+
+  return response.arrayBuffer()
+}
+
+export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
+  const config = getGtfsRtConfig()
+  if (config.useMock) {
+    return mockVehicles
+  }
+
+  try {
+    const buffer = await fetchGtfsRtBinary(config.vehiclePositionsUrl, config, 'VehiclePositions')
+    return decodeVehiclePositions(buffer)
   } catch (error) {
     console.error('Failed to fetch GTFS-RT VehiclePositions', error)
+    return []
+  }
+}
+
+export async function fetchTripUpdates(): Promise<TripUpdate[]> {
+  const config = getGtfsRtConfig()
+  if (config.useMock) {
+    return mockTripUpdates
+  }
+
+  try {
+    const buffer = await fetchGtfsRtBinary(config.tripUpdatesUrl, config, 'TripUpdates')
+    return decodeTripUpdates(buffer)
+  } catch (error) {
+    console.error('Failed to fetch GTFS-RT TripUpdates', error)
     return []
   }
 }

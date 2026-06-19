@@ -292,6 +292,42 @@ select {
   font-weight: 700;
 }
 
+.delay-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+}
+
+.delay-badge {
+  display: inline-flex;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.delay-badge-on-time {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.delay-badge-late {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.delay-badge-early {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.delay-badge-unknown {
+  color: #475569;
+  background: #e2e8f0;
+}
+
 .status-badge {
   display: inline-block;
   margin: 0 0 8px;

@@ -52,6 +52,21 @@ export type VehiclePosition = {
   timestamp: Date
 }
 
+export type StopTimeDelay = {
+  stopId?: string
+  stopSequence?: number
+  arrivalDelaySeconds?: number
+  departureDelaySeconds?: number
+}
+
+export type TripUpdate = {
+  tripId: string
+  vehicleId?: string
+  delaySeconds?: number
+  stopTimeDelays: StopTimeDelay[]
+  timestamp: Date
+}
+
 export type BusCandidate = {
   trip: Trip
   route: Route

@@ -1,4 +1,4 @@
-import type { Coordinates, Route, Stop, Trip, VehiclePosition } from '../types'
+import type { Coordinates, Route, Stop, Trip, TripUpdate, VehiclePosition } from '../types'
 
 export const mockCurrentPosition: Coordinates = {
   latitude: 32.8031,
@@ -64,6 +64,30 @@ export const mockVehicles: VehiclePosition[] = [
     latitude: 32.8046,
     longitude: 130.7129,
     bearing: 88,
+    timestamp: new Date(),
+  },
+]
+
+export const mockTripUpdates: TripUpdate[] = [
+  {
+    tripId: 'trip-a-morning',
+    vehicleId: 'vehicle-096',
+    delaySeconds: 240,
+    stopTimeDelays: [],
+    timestamp: new Date(),
+  },
+  {
+    tripId: 'trip-b-daytime',
+    vehicleId: 'vehicle-104',
+    delaySeconds: 0,
+    stopTimeDelays: [],
+    timestamp: new Date(),
+  },
+  {
+    tripId: 'trip-c-daytime',
+    vehicleId: 'vehicle-118',
+    delaySeconds: -120,
+    stopTimeDelays: [],
     timestamp: new Date(),
   },
 ]

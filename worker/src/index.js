@@ -1,6 +1,11 @@
 const CACHE_SECONDS = 10
 const DEFAULT_ALLOWED_ORIGIN = '*'
 
+const FEED_PATHS = {
+  '/trip-updates': 'GTFS_RT_TRIP_UPDATES_URL',
+  '/vehicle-positions': 'GTFS_RT_VEHICLE_POSITIONS_URL',
+}
+
 function parseAllowedOrigins(value) {
   return (value || DEFAULT_ALLOWED_ORIGIN)
     .split(',')
@@ -37,8 +42,9 @@ export default {
     const requestUrl = new URL(request.url)
     const origin = request.headers.get('Origin')
     const allowedCorsOrigin = resolveAllowedCorsOrigin(origin, env.ALLOWED_ORIGIN)
+    const upstreamEnvKey = FEED_PATHS[requestUrl.pathname]
 
-    if (requestUrl.pathname !== '/vehicle-positions') {
+    if (!upstreamEnvKey) {
       return new Response('Not found', { status: 404 })
     }
 
@@ -54,7 +60,7 @@ export default {
       return new Response('Method not allowed', { status: 405 })
     }
 
-    const upstream = await fetch(env.GTFS_RT_VEHICLE_POSITIONS_URL, {
+    const upstream = await fetch(env[upstreamEnvKey], {
       headers: { Accept: 'application/x-protobuf' },
       cf: { cacheEverything: true, cacheTtl: CACHE_SECONDS },
     })
