@@ -79,11 +79,6 @@ export type NearbyStop = {
   distanceMeters: number
 }
 
-export type NearbyStop = {
-  stop: Stop
-  distanceMeters: number
-}
-
 export type EtaResult = {
   stop: Stop
   estimatedArrival: Date

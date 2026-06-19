@@ -20,10 +20,7 @@ async function bootstrap() {
   ])
 
   const position = positionResult.position
-  const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes)
-  const candidate = candidates.find((item) => item.isWithinMatchingRange)
   const nearbyStops = findNearbyStops(position, staticData.stops)
-  const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
   const stopsById = new Map(staticData.stops.map((stop) => [stop.id, stop]))
   const isMockVehicleSource = import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false'
   let refreshInProgress = false
@@ -73,16 +70,6 @@ async function bootstrap() {
       }
     }, VEHICLE_REFRESH_INTERVAL_MS)
   }
-  const destinationStopId = candidate?.trip.stopIds.at(-1)
-  const eta = candidate && destinationStopId ? calculateEta(candidate, destinationStopId, staticData.stops) : undefined
-  const candidateStops: Stop[] = candidate
-    ? candidate.trip.stopIds
-        .map((stopId) => stopsById.get(stopId))
-        .filter((stop): stop is Stop => stop !== undefined)
-    : []
-
-  renderApp({ root, position, candidate, candidates, diagnostics, eta, stops: candidateStops, nearbyStops })
-
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
