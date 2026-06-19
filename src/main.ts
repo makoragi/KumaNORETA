@@ -8,6 +8,27 @@ import type { BusCandidate, BusEstimationDiagnostics, Stop } from './types'
 import { renderApp, renderFatalError, renderLoadingApp } from './ui/render'
 
 const VEHICLE_REFRESH_INTERVAL_MS = 15_000
+const SELECTED_TRIP_STORAGE_KEY = 'kumanoreta:selectedTripId'
+
+function loadPersistedSelectedTripId(): string | undefined {
+  try {
+    return window.localStorage.getItem(SELECTED_TRIP_STORAGE_KEY) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+function persistSelectedTripId(tripId?: string): void {
+  try {
+    if (tripId) {
+      window.localStorage.setItem(SELECTED_TRIP_STORAGE_KEY, tripId)
+    } else {
+      window.localStorage.removeItem(SELECTED_TRIP_STORAGE_KEY)
+    }
+  } catch {
+    // Ignore storage failures and keep the in-memory selection.
+  }
+}
 
 async function bootstrap() {
   const root = document.querySelector<HTMLDivElement>('#app')
@@ -22,7 +43,7 @@ async function bootstrap() {
   const isMockVehicleSource = import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false'
 
   let refreshInProgress = false
-  let selectedTripId: string | undefined
+  let selectedTripId: string | undefined = loadPersistedSelectedTripId()
   let selectedCandidate: BusCandidate | undefined
 
   const buildCandidateStops = (candidate?: BusCandidate): Stop[] =>
@@ -43,10 +64,9 @@ async function bootstrap() {
       const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
       const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
 
-      if (selectedTripId) {
-        selectedCandidate =
-          candidates.find((candidate) => candidate.trip.id === selectedTripId) ?? selectedCandidate
-      }
+      selectedCandidate = selectedTripId
+        ? candidates.find((candidate) => candidate.trip.id === selectedTripId)
+        : undefined
 
       const activeCandidate = selectedCandidate ?? estimatedCandidate
       const destinationStopId = activeCandidate?.trip.stopIds.at(-1)
@@ -76,8 +96,14 @@ async function bootstrap() {
         eta,
         nearbyStops,
         onSelectCandidate: (tripId) => {
-          selectedTripId = tripId
-          selectedCandidate = candidates.find((candidate) => candidate.trip.id === tripId)
+          if (selectedTripId === tripId) {
+            selectedTripId = undefined
+            selectedCandidate = undefined
+          } else {
+            selectedTripId = tripId
+            selectedCandidate = candidates.find((candidate) => candidate.trip.id === tripId)
+          }
+          persistSelectedTripId(selectedTripId)
           void refreshVehicles()
         },
         selectedTripId,

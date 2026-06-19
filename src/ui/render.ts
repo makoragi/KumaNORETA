@@ -18,7 +18,7 @@ function renderCandidateCard(params: {
       <div class="candidate-item-header">
         <div class="candidate-badges">
           <p class="route" style="--route-color:${candidate.route.color}">${candidate.route.shortName}</p>
-          ${isEstimated ? '<span class="candidate-badge">推定中</span>' : ''}
+          ${isEstimated ? '<span class="candidate-badge">自動推定</span>' : ''}
           ${isSelected ? '<span class="candidate-badge candidate-badge-selected">選択中</span>' : ''}
         </div>
         <p class="candidate-rank">候補 ${rank}</p>
@@ -28,7 +28,7 @@ function renderCandidateCard(params: {
       <p class="muted">距離 約${Math.round(candidate.distanceMeters)}m / 信頼度 ${Math.round(candidate.confidence * 100)}%</p>
       <p class="muted">${candidate.reason}</p>
       <button class="candidate-select-button" data-trip-id="${candidate.trip.id}" type="button">
-        ${isSelected ? 'このバスを保持中' : 'このバスを選択'}
+        ${isSelected ? 'このバスの選択を解除' : 'このバスを選択'}
       </button>
     </li>
   `
@@ -45,7 +45,7 @@ export function renderLoadingApp(root: HTMLElement): void {
 
       <section class="card">
         <h2>読み込み中</h2>
-        <p class="muted">必要なデータが揃い次第、候補と ETA を表示します。</p>
+        <p class="muted">候補の推定と ETA を準備しています。</p>
       </section>
     </main>
   `
@@ -62,7 +62,7 @@ export function renderFatalError(root: HTMLElement): void {
 
       <section class="card">
         <h2>エラー</h2>
-        <p class="muted">ページを再読み込みしても改善しない場合は、ブラウザの開発者ツールを確認してください。</p>
+        <p class="muted">ページを再読み込みしても直らない場合は、ブラウザの開発者ツールを確認してください。</p>
       </section>
     </main>
   `
@@ -97,25 +97,25 @@ export function renderApp(params: {
 
   const emptyState =
     diagnostics.totalVehicles === 0
-      ? '車両データを取得できませんでした。通信状況または配信元の状態を確認してください。'
+      ? '車両データを取得できていません。通信状況を確認してしばらく待ってください。'
       : diagnostics.matchedVehicles === 0
-        ? '車両データは取得できましたが、静的GTFSと一致する便をまだ見つけられていません。'
-        : '推定範囲内の車両はありません。下の近い候補から手動で固定できます。'
+        ? '車両データは取得できましたが、現在地と一致する候補がまだ見つかっていません。'
+        : '推定範囲内の車両はありません。上位の候補から現在地に近いバスを確認してください。'
 
   root.innerHTML = `
     <main class="app-shell">
       <section class="hero">
         <p class="eyebrow">Kumamoto bus ride companion</p>
         <h1>KumaNORETA</h1>
-        <p>いま乗っているバスを確認して、降車候補までの到着見込みを表示します。</p>
+        <p>いま乗っているバスを推定して、降車停留所までの到着見込みを表示します。</p>
       </section>
 
       <section class="card grid">
         <div>
-          <h2>現在位置</h2>
+          <h2>現在地</h2>
           <p>緯度 ${position.latitude.toFixed(4)} / 経度 ${position.longitude.toFixed(4)}</p>
           <p class="muted">精度 約${Math.round(position.accuracyMeters)}m</p>
-          <p class="muted">位置ソース ${diagnostics.positionSource}</p>
+          <p class="muted">位置情報ソース ${diagnostics.positionSource}</p>
         </div>
         <div>
           <h2>表示中のバス</h2>
@@ -127,8 +127,8 @@ export function renderApp(params: {
                  <p class="muted">${activeCandidate.reason}</p>
                  <p class="selection-note">${
                    selectedTripId
-                     ? '手動で選択したバスを保持しています。GPSとのズレは無視します。'
-                     : '現在は自動推定中です。下の候補から手動で固定できます。'
+                     ? '手動で選択したバスを表示中です。候補一覧の同じボタンをもう一度押すと解除できます。'
+                     : '現在は自動推定中です。下の候補から選ぶと、そのバスを優先して表示します。'
                  }</p>`
               : `<p>${emptyState}</p>`
           }
@@ -137,15 +137,15 @@ export function renderApp(params: {
 
       <section class="card diagnostics-card">
         <div class="section-heading">
-          <h2>候補診断</h2>
-          <p class="muted">候補が出ないときの切り分け用です。</p>
+          <h2>推定診断</h2>
+          <p class="muted">推定が出ないときの手掛かりです。</p>
         </div>
         <div class="diagnostics-grid">
-          <p><strong>車両ソース:</strong> ${diagnostics.vehicleSource}</p>
-          <p><strong>最終更新:</strong> ${formatTime(diagnostics.vehicleFetchedAt)}（15秒間隔）</p>
-          <p><strong>取得車両数:</strong> ${diagnostics.totalVehicles}件</p>
-          <p><strong>trip/route 一致件数:</strong> ${diagnostics.matchedVehicles}件</p>
-          <p><strong>推定範囲内の一致車両:</strong> ${diagnostics.nearbyMatchedVehicles}件</p>
+          <p><strong>車両データソース:</strong> ${diagnostics.vehicleSource}</p>
+          <p><strong>最終更新:</strong> ${formatTime(diagnostics.vehicleFetchedAt)}（15秒ごと更新）</p>
+          <p><strong>取得車両数:</strong> ${diagnostics.totalVehicles}台</p>
+          <p><strong>trip/route 一致数:</strong> ${diagnostics.matchedVehicles}台</p>
+          <p><strong>推定範囲内の一致車両:</strong> ${diagnostics.nearbyMatchedVehicles}台</p>
           <p><strong>表示候補数:</strong> ${diagnostics.candidateCount}件</p>
         </div>
         ${diagnostics.note ? `<p class="diagnostics-note">${diagnostics.note}</p>` : ''}
@@ -154,7 +154,7 @@ export function renderApp(params: {
       <section class="card">
         <div class="section-heading">
           <h2>近いバス候補</h2>
-          <p class="muted">推定中のバス、または GPS 位置に近い候補から選択できます。</p>
+          <p class="muted">自動推定の候補です。手動で選ぶと更新後も保持します。</p>
         </div>
         ${
           candidates.length > 0
@@ -176,8 +176,8 @@ export function renderApp(params: {
 
       <section class="card">
         <div class="section-heading">
-          <h2>現在地に近い停留所</h2>
-          <p class="muted">車両候補が出ない場合の位置確認用です。</p>
+          <h2>近い停留所</h2>
+          <p class="muted">推定候補が出ない場合の位置確認用です。</p>
         </div>
         ${
           nearbyStops.length > 0
@@ -193,13 +193,13 @@ export function renderApp(params: {
                     </li>`,
                 )
                 .join('')}</ol>`
-            : '<p>現在地に近い停留所は見つかりませんでした。</p>'
+            : '<p>近くの停留所は見つかりませんでした。</p>'
         }
       </section>
 
       <section class="card">
-        <h2>降車候補と ETA</h2>
-        <label for="destination">降車候補</label>
+        <h2>降車停留所と ETA</h2>
+        <label for="destination">降車停留所</label>
         <select id="destination" disabled>
           ${stops.map((stop) => `<option ${eta?.stop.id === stop.id ? 'selected' : ''}>${stop.name}</option>`).join('')}
         </select>
