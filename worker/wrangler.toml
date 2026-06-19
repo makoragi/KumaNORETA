@@ -4,5 +4,5 @@ compatibility_date = "2026-06-18"
 workers_dev = true
 
 [vars]
-ALLOWED_ORIGIN = "https://mattuu5.github.io"
+ALLOWED_ORIGIN = "*"
 GTFS_RT_VEHICLE_POSITIONS_URL = "https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin"
