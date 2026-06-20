@@ -129,6 +129,8 @@ pnpm preview:pages
 
 GitHub Actions の `Deploy to GitHub Pages` ワークフローでは `corepack` 経由の `pnpm install --frozen-lockfile` と `pnpm build` を使い、ローカル preview と同じ依存関係・同じビルド手順で `dist/` を GitHub Pages へデプロイします。
 
+Repository Variable `VITE_TRANSIT_DATASET=all` を設定した場合は、デプロイ前に `pnpm gtfs:sync:all` が自動で実行され、`public/gtfs/kumamoto-buses-static.json` を生成してから build します。
+
 リポジトリ名に合わせて `vite.config.ts` の `base` は `/KumaNORETA/` に設定しています。
 
 ## 今後の設計メモ
