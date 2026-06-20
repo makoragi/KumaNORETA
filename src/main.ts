@@ -1,4 +1,5 @@
 import './style.css'
+import { defaultTransitDatasetId, isTransitOperatorId } from './config/transit'
 import {
   collectBusEstimationDiagnostics,
   findBusCandidateByTripId,
@@ -101,6 +102,12 @@ async function bootstrap() {
 
   let selectedLocationMode: LocationDebugMode = loadLocationDebugMode()
   const staticData = await loadStaticGtfsData()
+  const activeDatasetId =
+    staticData.metadata.datasetId === 'all'
+      ? 'all'
+      : staticData.metadata.datasetId && isTransitOperatorId(staticData.metadata.datasetId)
+        ? staticData.metadata.datasetId
+        : defaultTransitDatasetId
   let positionResult = await getCurrentPosition(selectedLocationMode)
   const stopsById = new Map(staticData.stops.map((stop) => [stop.id, stop]))
   const isMockVehicleSource = import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false'
@@ -129,8 +136,8 @@ async function bootstrap() {
 
     try {
       const [vehicles, tripUpdatesResult] = await Promise.all([
-        fetchVehiclePositions(),
-        fetchTripUpdatesWithStatus(),
+        fetchVehiclePositions(activeDatasetId),
+        fetchTripUpdatesWithStatus(activeDatasetId),
       ])
 
       const vehicleFetchedAt = new Date()

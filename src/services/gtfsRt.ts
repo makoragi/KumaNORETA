@@ -590,8 +590,11 @@ function normalizeTripUpdates(
   }))
 }
 
-export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
+export async function fetchVehiclePositions(datasetIdOverride?: TransitDatasetId): Promise<VehiclePosition[]> {
   const config = getGtfsRtConfig()
+  if (datasetIdOverride) {
+    config.datasetId = datasetIdOverride
+  }
   if (config.useMock) {
     return mockVehicles
   }
@@ -616,13 +619,18 @@ export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
   return collections.flat()
 }
 
-export async function fetchTripUpdates(): Promise<TripUpdate[]> {
-  const result = await fetchTripUpdatesWithStatus()
+export async function fetchTripUpdates(datasetIdOverride?: TransitDatasetId): Promise<TripUpdate[]> {
+  const result = await fetchTripUpdatesWithStatus(datasetIdOverride)
   return result.tripUpdates
 }
 
-export async function fetchTripUpdatesWithStatus(): Promise<TripUpdatesFetchResult> {
+export async function fetchTripUpdatesWithStatus(
+  datasetIdOverride?: TransitDatasetId,
+): Promise<TripUpdatesFetchResult> {
   const config = getGtfsRtConfig()
+  if (datasetIdOverride) {
+    config.datasetId = datasetIdOverride
+  }
   if (config.useMock) {
     return {
       status: 'mock',

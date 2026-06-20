@@ -59,6 +59,12 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+`pnpm` や `corepack` が使えない環境では、ローカルに入っている `node` とリポジトリ内の `node_modules` を直接使えます。
+
+```powershell
+node .\node_modules\vite\bin\vite.js --host 0.0.0.0
+```
+
 現在地推定をテストしたい場合は、`.env` に以下を設定すると GPS を固定値で上書きできます。
 
 ```bash
@@ -76,12 +82,34 @@ VITE_GPS_OVERRIDE_ACCURACY_METERS=10
 pnpm build
 ```
 
+`pnpm` なしで実行する場合:
+
+```powershell
+node .\node_modules\typescript\bin\tsc
+node .\node_modules\vite\bin\vite.js build
+```
+
 ## GTFS-JP Sync
 ```powershell
 pnpm gtfs:sync
 ```
 
 `pnpm gtfs:sync` は熊本都市バスのGTFS-JP配信 (`https://km.bus-vision.jp/gtfs/toshibus/gtfsFeed`) を取得し、展開済みデータを `data/gtfs-jp/toshibus/` に、ブラウザ読込用の正規化JSONを `public/gtfs/toshibus-static.json` に生成します。
+
+4事業者統合版を生成する場合:
+
+```powershell
+pnpm gtfs:sync:all
+```
+
+`pnpm` なしで実行する場合は、PowerShell スクリプトを直接呼び出してください。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-gtfs-jp.ps1 -DatasetId toshibus
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-gtfs-jp.ps1 -DatasetId all
+```
+
+`VITE_TRANSIT_DATASET=all` を使う前に、必ず `-DatasetId all` か `pnpm gtfs:sync:all` で `public/gtfs/kumamoto-buses-static.json` を生成してください。未生成のままでもアプリは熊本都市バス単体へフォールバックしますが、4事業者統合モードにはなりません。
 詳細は [docs/gtfs-jp-sync.md](docs/gtfs-jp-sync.md) を参照してください。
 
 ## Local Preview

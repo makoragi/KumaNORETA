@@ -1,4 +1,5 @@
 import {
+  defaultTransitDatasetId,
   getStaticGtfsFile,
   getTransitOperator,
   normalizeTransitDatasetId,
@@ -49,8 +50,8 @@ function normalizeStaticGtfsData(datasetId: string, data: StaticGtfsDataLike): S
 }
 
 export async function loadStaticGtfsData(): Promise<StaticGtfsData> {
-  const datasetId = normalizeTransitDatasetId(import.meta.env.VITE_TRANSIT_DATASET)
-  const staticGtfsUrl = `${import.meta.env.BASE_URL}gtfs/${getStaticGtfsFile(datasetId)}`
+  const requestedDatasetId = normalizeTransitDatasetId(import.meta.env.VITE_TRANSIT_DATASET)
+  const staticGtfsUrl = `${import.meta.env.BASE_URL}gtfs/${getStaticGtfsFile(requestedDatasetId)}`
 
   try {
     const response = await fetch(staticGtfsUrl)
@@ -58,15 +59,37 @@ export async function loadStaticGtfsData(): Promise<StaticGtfsData> {
       throw new Error(`Static GTFS request failed with ${response.status}`)
     }
 
-    return normalizeStaticGtfsData(datasetId, (await response.json()) as StaticGtfsDataLike)
+    return normalizeStaticGtfsData(requestedDatasetId, (await response.json()) as StaticGtfsDataLike)
   } catch (error) {
-    console.error('Failed to load static GTFS-JP data, falling back to mocks.', error)
+    if (requestedDatasetId === 'all') {
+      const fallbackUrl = `${import.meta.env.BASE_URL}gtfs/${getStaticGtfsFile(defaultTransitDatasetId)}`
+
+      try {
+        const fallbackResponse = await fetch(fallbackUrl)
+        if (!fallbackResponse.ok) {
+          throw new Error(`Static GTFS fallback request failed with ${fallbackResponse.status}`)
+        }
+
+        console.warn(
+          'Combined static GTFS artifact was not found. Falling back to the default single-operator dataset.',
+          error,
+        )
+        return normalizeStaticGtfsData(
+          defaultTransitDatasetId,
+          (await fallbackResponse.json()) as StaticGtfsDataLike,
+        )
+      } catch (fallbackError) {
+        console.error('Failed to load fallback static GTFS-JP data, falling back to mocks.', fallbackError)
+      }
+    } else {
+      console.error('Failed to load static GTFS-JP data, falling back to mocks.', error)
+    }
 
     return {
       metadata: {
         publisherName: 'mock',
         version: 'mock',
-        datasetId,
+        datasetId: requestedDatasetId,
         agencyIds: ['mock'],
         startDate: new Date().toISOString().slice(0, 10),
         endDate: new Date().toISOString().slice(0, 10),
