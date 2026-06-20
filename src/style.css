@@ -567,12 +567,19 @@ select {
   color: inherit;
   background: rgb(255 255 255 / 14%);
   outline: none;
+  color-scheme: light;
 }
 
 .status-select {
   color: var(--text);
   background: rgb(255 255 255 / 72%);
   border-color: var(--line-strong);
+}
+
+select option,
+select optgroup {
+  color: var(--text);
+  background: var(--surface-solid);
 }
 
 .eta-meta {
