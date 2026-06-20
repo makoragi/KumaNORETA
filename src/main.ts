@@ -153,6 +153,10 @@ async function bootstrap() {
           persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
           void refreshVehicles()
         },
+        onRefreshLocation: async () => {
+          positionResult = await getCurrentPosition(selectedLocationMode)
+          await refreshVehicles()
+        },
         onSelectLocationMode: async (mode) => {
           selectedLocationMode = mode
           persistLocationDebugMode(mode)

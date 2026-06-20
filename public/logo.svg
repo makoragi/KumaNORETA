@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-label="KumaNORETA logo">
+  <defs>
+    <linearGradient id="wordBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#821a1e" />
+      <stop offset="42%" stop-color="#be2f2f" />
+      <stop offset="100%" stop-color="#d77f4f" />
+    </linearGradient>
+    <linearGradient id="bus" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffe8d2" />
+      <stop offset="100%" stop-color="#d49c58" />
+    </linearGradient>
+  </defs>
+  <rect width="960" height="320" rx="44" fill="#fff8f2" />
+  <rect x="24" y="24" width="912" height="272" rx="34" fill="url(#wordBg)" />
+  <path
+    d="M40 236C118 194 171 214 240 145C292 93 356 136 418 84C470 40 543 73 620 24V296H40Z"
+    fill="#fff5ec"
+    opacity="0.15"
+  />
+  <g transform="translate(78 76)">
+    <rect x="0" y="34" width="148" height="108" rx="34" fill="url(#bus)" stroke="#251917" stroke-width="12" />
+    <rect x="26" y="58" width="96" height="40" rx="12" fill="#fff8f4" />
+    <path d="M34 112H114" stroke="#251917" stroke-width="12" stroke-linecap="round" />
+    <circle cx="38" cy="154" r="18" fill="#251917" />
+    <circle cx="110" cy="154" r="18" fill="#251917" />
+    <path d="M6 200C36 184 60 190 83 166C104 145 128 160 148 132C165 111 189 122 216 98V212H6Z" fill="#fff8f4" opacity="0.34" />
+  </g>
+  <g fill="#fff9f4">
+    <text x="272" y="150" font-size="78" font-family="Outfit, 'M PLUS 1p', sans-serif" font-weight="800" letter-spacing="-2">KumaNORETA</text>
+    <text x="276" y="198" font-size="28" font-family="'M PLUS 1p', sans-serif" font-weight="700" opacity="0.84">熊本のバス ETA を、ひと目で。</text>
+  </g>
+</svg>

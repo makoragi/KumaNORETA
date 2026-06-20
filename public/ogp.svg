@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="KumaNORETA OGP image">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#70161c" />
+      <stop offset="42%" stop-color="#be2f2f" />
+      <stop offset="100%" stop-color="#d28a4f" />
+    </linearGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.18)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.08)" />
+    </linearGradient>
+    <linearGradient id="bus" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffe9d3" />
+      <stop offset="100%" stop-color="#d49e5c" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#fbf8f4" />
+  <rect x="24" y="24" width="1152" height="582" rx="42" fill="url(#bg)" />
+  <path
+    d="M39 454C144 397 218 423 307 326C383 244 478 312 555 233C620 166 709 209 815 117V606H39Z"
+    fill="#fff5eb"
+    opacity="0.14"
+  />
+  <path
+    d="M30 522C104 459 163 489 231 399C287 325 368 371 425 294C478 223 549 261 616 180C686 96 774 139 853 64C907 13 986 42 1172 -74V606H30Z"
+    fill="#fff7ef"
+    opacity="0.08"
+  />
+  <path
+    d="M720 110L748 146H797L764 168L776 213L720 185L664 213L676 168L643 146H692Z"
+    fill="#fff0e6"
+    opacity="0.9"
+  />
+  <path
+    d="M736 126V188H694V230H646V188H604V126H646V84H694V126Z"
+    fill="#5f1317"
+    opacity="0.3"
+  />
+  <path
+    d="M66 534C164 462 240 488 320 391C386 312 465 366 539 281C603 207 692 248 785 149C853 77 948 124 1128 12V606H66Z"
+    fill="#fff8f3"
+    opacity="0.13"
+  />
+
+  <g transform="translate(86 90)">
+    <rect x="0" y="0" width="436" height="442" rx="34" fill="url(#card)" stroke="rgba(255,255,255,0.18)" />
+    <text x="40" y="72" fill="#fff5ec" font-size="24" font-family="'M PLUS 1p', sans-serif" font-weight="700" letter-spacing="2">KUMAMOTO TRANSIT COMPANION</text>
+    <text x="40" y="165" fill="#fff9f5" font-size="86" font-family="Outfit, 'M PLUS 1p', sans-serif" font-weight="800" letter-spacing="-3">KumaNORETA</text>
+    <text x="40" y="220" fill="rgba(255,245,237,0.86)" font-size="32" font-family="'M PLUS 1p', sans-serif" font-weight="700">熊本のバス ETA を、ひと目で。</text>
+    <text x="40" y="276" fill="rgba(255,238,227,0.82)" font-size="24" font-family="'M PLUS 1p', sans-serif">いま乗っている便を推定して、残り時間を大きく表示。</text>
+    <rect x="40" y="328" width="184" height="66" rx="33" fill="#fff3eb" opacity="0.16" />
+    <text x="72" y="371" fill="#fff8f4" font-size="28" font-family="'M PLUS 1p', sans-serif" font-weight="800">もうすぐたい。</text>
+  </g>
+
+  <g transform="translate(640 104)">
+    <rect x="0" y="0" width="470" height="422" rx="36" fill="rgba(255,252,249,0.14)" stroke="rgba(255,255,255,0.16)" />
+    <rect x="36" y="34" width="398" height="68" rx="20" fill="rgba(255,255,255,0.14)" />
+    <text x="64" y="76" fill="#fff5eb" font-size="26" font-family="'M PLUS 1p', sans-serif" font-weight="700">降車停留所と ETA</text>
+    <text x="58" y="188" fill="#fff8f4" font-size="30" font-family="'M PLUS 1p', sans-serif" font-weight="700">あと</text>
+    <text x="136" y="224" fill="#fffdf8" font-size="160" font-family="Outfit, 'M PLUS 1p', sans-serif" font-weight="800" letter-spacing="-8">12</text>
+    <text x="330" y="188" fill="#fff8f4" font-size="42" font-family="'M PLUS 1p', sans-serif" font-weight="800">分</text>
+    <text x="60" y="270" fill="rgba(255,245,237,0.92)" font-size="34" font-family="'M PLUS 1p', sans-serif" font-weight="700">熊本城・市役所前</text>
+    <text x="60" y="316" fill="rgba(255,236,225,0.82)" font-size="24" font-family="'M PLUS 1p', sans-serif">16:42 ごろ到着見込み</text>
+    <rect x="56" y="344" width="112" height="74" rx="26" fill="rgba(255,255,255,0.13)" />
+    <rect x="184" y="344" width="112" height="74" rx="26" fill="rgba(255,255,255,0.13)" />
+    <rect x="312" y="344" width="112" height="74" rx="26" fill="rgba(255,255,255,0.13)" />
+    <text x="80" y="376" fill="rgba(255,240,230,0.8)" font-size="18" font-family="'M PLUS 1p', sans-serif">到着</text>
+    <text x="210" y="376" fill="rgba(255,240,230,0.8)" font-size="18" font-family="'M PLUS 1p', sans-serif">残り</text>
+    <text x="338" y="376" fill="rgba(255,240,230,0.8)" font-size="18" font-family="'M PLUS 1p', sans-serif">推定</text>
+    <text x="74" y="405" fill="#fff9f4" font-size="26" font-family="Outfit, 'M PLUS 1p', sans-serif" font-weight="700">16:42</text>
+    <text x="202" y="405" fill="#fff9f4" font-size="26" font-family="Outfit, 'M PLUS 1p', sans-serif" font-weight="700">1.4km</text>
+    <text x="338" y="405" fill="#fff9f4" font-size="22" font-family="'M PLUS 1p', sans-serif" font-weight="700">距離モデル</text>
+  </g>
+
+  <g transform="translate(840 406)">
+    <circle cx="0" cy="0" r="62" fill="none" stroke="rgba(255,245,237,0.18)" stroke-width="2" />
+    <circle cx="0" cy="0" r="96" fill="none" stroke="rgba(255,245,237,0.12)" stroke-width="2" />
+    <rect x="-42" y="-62" width="84" height="52" rx="18" fill="url(#bus)" stroke="#251917" stroke-width="8" />
+    <rect x="-24" y="-48" width="48" height="18" rx="8" fill="#fff8f4" />
+    <path d="M-22 -20H22" stroke="#251917" stroke-width="8" stroke-linecap="round" />
+    <circle cx="-22" cy="2" r="10" fill="#251917" />
+    <circle cx="22" cy="2" r="10" fill="#251917" />
+  </g>
+</svg>
