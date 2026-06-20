@@ -1,3 +1,10 @@
+import {
+  getTransitDatasetOperators,
+  normalizeTransitDatasetId,
+  type TransitDatasetId,
+  type TransitOperator,
+  type TransitOperatorId,
+} from '../config/transit'
 import { mockTripUpdates, mockVehicles } from '../mocks/mockData'
 import type { TripUpdate, VehiclePosition } from '../types'
 
@@ -12,17 +19,9 @@ type GtfsRtConfig = {
   apiKey?: string
   apiKeyHeader: string
   authToken?: string
-  alertsUrl: string
-  tripUpdatesUrls: string[]
-  vehiclePositionsUrls: string[]
+  datasetId: TransitDatasetId
   useMock: boolean
 }
-
-const DEFAULT_GTFS_RT_URLS = {
-  alerts: 'https://km.bus-vision.jp/realtime/toshibus_alrt_update.bin',
-  tripUpdates: 'https://km.bus-vision.jp/realtime/toshibus_trip_update.bin',
-  vehiclePositions: 'https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin',
-} as const
 
 type ParsedVehiclePosition = {
   bearing?: number
@@ -47,6 +46,9 @@ type ParsedTripUpdate = {
   stopTimeDelays: ParsedStopTimeDelay[]
   timestamp?: number
 }
+
+type RawVehiclePosition = Omit<VehiclePosition, 'agencyId' | 'agencyName'>
+type RawTripUpdate = Omit<TripUpdate, 'agencyId' | 'agencyName'>
 
 class ProtoReader {
   private offset = 0
@@ -377,9 +379,9 @@ function parseFeedEntity<T>(
   return parsed
 }
 
-function decodeVehiclePositions(buffer: ArrayBuffer): VehiclePosition[] {
+function decodeVehiclePositions(buffer: ArrayBuffer): RawVehiclePosition[] {
   const reader = new ProtoReader(new Uint8Array(buffer))
-  const vehicles: VehiclePosition[] = []
+  const vehicles: RawVehiclePosition[] = []
 
   while (!reader.eof) {
     const { fieldNumber, wireType } = reader.readTag()
@@ -429,9 +431,9 @@ function resolveTripDelay(entity: ParsedTripUpdate) {
   return undefined
 }
 
-function decodeTripUpdates(buffer: ArrayBuffer): TripUpdate[] {
+function decodeTripUpdates(buffer: ArrayBuffer): RawTripUpdate[] {
   const reader = new ProtoReader(new Uint8Array(buffer))
-  const tripUpdates: TripUpdate[] = []
+  const tripUpdates: RawTripUpdate[] = []
 
   while (!reader.eof) {
     const { fieldNumber, wireType } = reader.readTag()
@@ -473,32 +475,59 @@ function buildHeaders(config: GtfsRtConfig) {
   return headers
 }
 
-function getProxyEndpoint(path: 'vehicle-positions' | 'trip-updates') {
+function getProxyEndpoints(
+  path: 'vehicle-positions' | 'trip-updates',
+  datasetId: TransitDatasetId,
+  operatorId: TransitOperatorId,
+) {
   const proxyUrl = import.meta.env.VITE_GTFS_RT_PROXY_URL?.replace(/\/$/, '')
 
-  if (!proxyUrl) return undefined
-  if (proxyUrl.endsWith(`/${path}`)) return proxyUrl
-  return `${proxyUrl}/${path}`
+  if (!proxyUrl) return []
+
+  const operatorSpecificUrl = `${proxyUrl}/${path}/${operatorId}`
+  if (datasetId === 'all' || operatorId !== 'toshibus') {
+    return [operatorSpecificUrl]
+  }
+
+  const legacyUrl = proxyUrl.endsWith(`/${path}`) ? proxyUrl : `${proxyUrl}/${path}`
+  return [...new Set([legacyUrl, operatorSpecificUrl])]
 }
 
 function getGtfsRtConfig(): GtfsRtConfig {
-  const proxiedTripUpdatesUrl = getProxyEndpoint('trip-updates')
-  const proxiedVehiclePositionsUrl = getProxyEndpoint('vehicle-positions')
-  const directTripUpdatesUrl =
-    import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL || DEFAULT_GTFS_RT_URLS.tripUpdates
-  const directVehiclePositionsUrl =
-    import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || DEFAULT_GTFS_RT_URLS.vehiclePositions
-  const isDefined = (value: string | undefined): value is string => Boolean(value)
+  const datasetId = normalizeTransitDatasetId(import.meta.env.VITE_TRANSIT_DATASET)
 
   return {
+    datasetId,
     apiKey: import.meta.env.VITE_GTFS_RT_API_KEY,
     apiKeyHeader: import.meta.env.VITE_GTFS_RT_API_KEY_HEADER ?? 'x-api-key',
     authToken: import.meta.env.VITE_GTFS_RT_AUTH_TOKEN,
-    alertsUrl: import.meta.env.VITE_GTFS_RT_ALERTS_URL || DEFAULT_GTFS_RT_URLS.alerts,
-    tripUpdatesUrls: [...new Set([proxiedTripUpdatesUrl, directTripUpdatesUrl].filter(isDefined))],
-    vehiclePositionsUrls: [...new Set([proxiedVehiclePositionsUrl, directVehiclePositionsUrl].filter(isDefined))],
     useMock: import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false',
   }
+}
+
+function normalizeEntityId(datasetId: TransitDatasetId, operatorId: TransitOperatorId, value: string) {
+  return datasetId === 'all' ? `${operatorId}:${value}` : value
+}
+
+function getGtfsRtUrls(
+  operator: TransitOperator,
+  config: GtfsRtConfig,
+  path: 'vehicle-positions' | 'trip-updates',
+) {
+  const isDefined = (value: string | undefined): value is string => Boolean(value)
+  const proxyUrls = getProxyEndpoints(path, config.datasetId, operator.id)
+
+  if (config.datasetId !== 'all' && operator.id === 'toshibus') {
+    const directUrl =
+      path === 'trip-updates'
+        ? import.meta.env.VITE_GTFS_RT_TRIP_UPDATES_URL || operator.tripUpdatesUrl
+        : import.meta.env.VITE_GTFS_RT_VEHICLE_POSITIONS_URL || operator.vehiclePositionsUrl
+
+    return [...new Set([...proxyUrls, directUrl].filter(isDefined))]
+  }
+
+  const directUrl = path === 'trip-updates' ? operator.tripUpdatesUrl : operator.vehiclePositionsUrl
+  return [...new Set([...proxyUrls, directUrl].filter(isDefined))]
 }
 
 async function fetchGtfsRtBinary(url: string, config: GtfsRtConfig, label: string) {
@@ -525,23 +554,66 @@ async function fetchFirstSuccessfulGtfsRtBinary(urls: string[], config: GtfsRtCo
   throw lastError instanceof Error ? lastError : new Error(`Failed to fetch GTFS-RT ${label}`)
 }
 
+function normalizeVehiclePositions(
+  vehicles: RawVehiclePosition[],
+  operator: TransitOperator,
+  datasetId: TransitDatasetId,
+): VehiclePosition[] {
+  return vehicles.map((vehicle) => ({
+    ...vehicle,
+    agencyId: operator.id,
+    agencyName: operator.agencyName,
+    vehicleId: normalizeEntityId(datasetId, operator.id, vehicle.vehicleId),
+    tripId: normalizeEntityId(datasetId, operator.id, vehicle.tripId),
+  }))
+}
+
+function normalizeTripUpdates(
+  tripUpdates: RawTripUpdate[],
+  operator: TransitOperator,
+  datasetId: TransitDatasetId,
+): TripUpdate[] {
+  return tripUpdates.map((tripUpdate) => ({
+    ...tripUpdate,
+    agencyId: operator.id,
+    agencyName: operator.agencyName,
+    tripId: normalizeEntityId(datasetId, operator.id, tripUpdate.tripId),
+    vehicleId: tripUpdate.vehicleId
+      ? normalizeEntityId(datasetId, operator.id, tripUpdate.vehicleId)
+      : undefined,
+    stopTimeDelays: tripUpdate.stopTimeDelays.map((stopTimeDelay) => ({
+      ...stopTimeDelay,
+      stopId: stopTimeDelay.stopId
+        ? normalizeEntityId(datasetId, operator.id, stopTimeDelay.stopId)
+        : undefined,
+    })),
+  }))
+}
+
 export async function fetchVehiclePositions(): Promise<VehiclePosition[]> {
   const config = getGtfsRtConfig()
   if (config.useMock) {
     return mockVehicles
   }
 
-  try {
-    const buffer = await fetchFirstSuccessfulGtfsRtBinary(
-      config.vehiclePositionsUrls,
-      config,
-      'VehiclePositions',
-    )
-    return decodeVehiclePositions(buffer)
-  } catch (error) {
-    console.error('Failed to fetch GTFS-RT VehiclePositions', error)
-    return []
-  }
+  const operators = getTransitDatasetOperators(config.datasetId)
+  const collections = await Promise.all(
+    operators.map(async (operator) => {
+      try {
+        const buffer = await fetchFirstSuccessfulGtfsRtBinary(
+          getGtfsRtUrls(operator, config, 'vehicle-positions'),
+          config,
+          `VehiclePositions (${operator.id})`,
+        )
+        return normalizeVehiclePositions(decodeVehiclePositions(buffer), operator, config.datasetId)
+      } catch (error) {
+        console.error(`Failed to fetch GTFS-RT VehiclePositions for ${operator.id}`, error)
+        return []
+      }
+    }),
+  )
+
+  return collections.flat()
 }
 
 export async function fetchTripUpdates(): Promise<TripUpdate[]> {
@@ -558,21 +630,34 @@ export async function fetchTripUpdatesWithStatus(): Promise<TripUpdatesFetchResu
     }
   }
 
-  try {
-    const buffer = await fetchFirstSuccessfulGtfsRtBinary(
-      config.tripUpdatesUrls,
-      config,
-      'TripUpdates',
-    )
-    return {
-      status: 'ok',
-      tripUpdates: decodeTripUpdates(buffer),
-    }
-  } catch (error) {
-    console.error('Failed to fetch GTFS-RT TripUpdates', error)
-    return {
-      status: 'failed',
-      tripUpdates: [],
-    }
+  const operators = getTransitDatasetOperators(config.datasetId)
+  const results = await Promise.all(
+    operators.map(async (operator) => {
+      try {
+        const buffer = await fetchFirstSuccessfulGtfsRtBinary(
+          getGtfsRtUrls(operator, config, 'trip-updates'),
+          config,
+          `TripUpdates (${operator.id})`,
+        )
+        return {
+          ok: true,
+          tripUpdates: normalizeTripUpdates(decodeTripUpdates(buffer), operator, config.datasetId),
+        }
+      } catch (error) {
+        console.error(`Failed to fetch GTFS-RT TripUpdates for ${operator.id}`, error)
+        return {
+          ok: false,
+          tripUpdates: [] as TripUpdate[],
+        }
+      }
+    }),
+  )
+
+  const tripUpdates = results.flatMap((result) => result.tripUpdates)
+  const hasSuccess = results.some((result) => result.ok)
+
+  return {
+    status: hasSuccess ? 'ok' : 'failed',
+    tripUpdates,
   }
 }

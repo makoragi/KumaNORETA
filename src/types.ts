@@ -7,6 +7,8 @@ export type Coordinates = {
 
 export type Stop = {
   id: string
+  agencyId: string
+  agencyName: string
   name: string
   latitude: number
   longitude: number
@@ -14,6 +16,8 @@ export type Stop = {
 
 export type Route = {
   id: string
+  agencyId: string
+  agencyName: string
   shortName: string
   longName: string
   color: string
@@ -22,6 +26,7 @@ export type Route = {
 
 export type Trip = {
   id: string
+  agencyId: string
   routeId: string
   serviceId?: string
   headsign: string
@@ -39,6 +44,8 @@ export type TripStopTime = {
 }
 
 export type GtfsFeedMetadata = {
+  datasetId?: string
+  agencyIds?: string[]
   publisherName: string
   publisherUrl?: string
   version: string
@@ -53,6 +60,8 @@ export type GtfsFeedMetadata = {
 
 export type VehiclePosition = {
   vehicleId: string
+  agencyId: string
+  agencyName: string
   tripId: string
   latitude: number
   longitude: number
@@ -69,6 +78,8 @@ export type StopTimeDelay = {
 
 export type TripUpdate = {
   tripId: string
+  agencyId: string
+  agencyName: string
   vehicleId?: string
   delaySeconds?: number
   stopTimeDelays: StopTimeDelay[]

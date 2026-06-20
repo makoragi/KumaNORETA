@@ -190,6 +190,7 @@ function renderCandidateCard(params: {
         <p class="candidate-rank">候補 ${rank}</p>
       </div>
       <p class="candidate-title">${candidate.route.longName}</p>
+      <p class="muted">事業者: ${candidate.route.agencyName}</p>
       ${candidate.isWithinMatchingRange ? '' : '<p class="status-badge">推定対象外</p>'}
       <p class="muted">遅延: ${delayPresentation.detailText}</p>
       <p class="muted">距離 約${Math.round(candidate.distanceMeters)}m / 信頼度 ${Math.round(candidate.confidence * 100)}%</p>
@@ -383,6 +384,7 @@ export function renderApp(params: {
                   </div>
                   <p class="bus-focus-summary-title">${routeTitle}</p>
                   <div class="bus-focus-summary-meta">
+                    <p><span>事業者</span><strong>${activeCandidate.route.agencyName}</strong></p>
                     <p><span>現在位置</span><strong>${renderCurrentSegment(tripProgress)}</strong></p>
                     <p><span>遅延</span><strong>${activeDelayPresentation.detailText}</strong></p>
                   </div>

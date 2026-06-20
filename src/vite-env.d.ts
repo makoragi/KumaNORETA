@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_GPS_OVERRIDE_ENABLED?: string
   readonly VITE_GPS_OVERRIDE_LATITUDE?: string
   readonly VITE_GPS_OVERRIDE_LONGITUDE?: string
+  readonly VITE_TRANSIT_DATASET?: string
   readonly VITE_GTFS_RT_API_KEY?: string
   readonly VITE_GTFS_RT_API_KEY_HEADER?: string
   readonly VITE_GTFS_RT_AUTH_TOKEN?: string

@@ -1,9 +1,28 @@
 const CACHE_SECONDS = 10
 const DEFAULT_ALLOWED_ORIGIN = '*'
 
-const FEED_PATHS = {
+const DEFAULT_FEED_PATHS = {
   '/trip-updates': 'GTFS_RT_TRIP_UPDATES_URL',
   '/vehicle-positions': 'GTFS_RT_VEHICLE_POSITIONS_URL',
+}
+
+const OPERATOR_ENV_KEYS = {
+  dentetsu: {
+    '/trip-updates': 'GTFS_RT_TRIP_UPDATES_URL_DENTETSU',
+    '/vehicle-positions': 'GTFS_RT_VEHICLE_POSITIONS_URL_DENTETSU',
+  },
+  kumabus: {
+    '/trip-updates': 'GTFS_RT_TRIP_UPDATES_URL_KUMABUS',
+    '/vehicle-positions': 'GTFS_RT_VEHICLE_POSITIONS_URL_KUMABUS',
+  },
+  sankobus: {
+    '/trip-updates': 'GTFS_RT_TRIP_UPDATES_URL_SANKOBUS',
+    '/vehicle-positions': 'GTFS_RT_VEHICLE_POSITIONS_URL_SANKOBUS',
+  },
+  toshibus: {
+    '/trip-updates': 'GTFS_RT_TRIP_UPDATES_URL_TOSHIBUS',
+    '/vehicle-positions': 'GTFS_RT_VEHICLE_POSITIONS_URL_TOSHIBUS',
+  },
 }
 
 function parseAllowedOrigins(value) {
@@ -37,12 +56,27 @@ function corsHeaders(origin) {
   }
 }
 
+function resolveUpstreamEnvKey(pathname) {
+  if (DEFAULT_FEED_PATHS[pathname]) {
+    return DEFAULT_FEED_PATHS[pathname]
+  }
+
+  const match = pathname.match(/^\/(trip-updates|vehicle-positions)\/([a-z0-9-]+)$/)
+  if (!match) {
+    return undefined
+  }
+
+  const basePath = `/${match[1]}`
+  const operatorId = match[2]
+  return OPERATOR_ENV_KEYS[operatorId]?.[basePath]
+}
+
 export default {
   async fetch(request, env) {
     const requestUrl = new URL(request.url)
     const origin = request.headers.get('Origin')
     const allowedCorsOrigin = resolveAllowedCorsOrigin(origin, env.ALLOWED_ORIGIN)
-    const upstreamEnvKey = FEED_PATHS[requestUrl.pathname]
+    const upstreamEnvKey = resolveUpstreamEnvKey(requestUrl.pathname)
 
     if (!upstreamEnvKey) {
       return new Response('Not found', { status: 404 })

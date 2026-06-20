@@ -1,0 +1,42 @@
+{
+  "operators": [
+    {
+      "id": "toshibus",
+      "agencyName": "熊本都市バス",
+      "gtfsFeedUrl": "https://km.bus-vision.jp/gtfs/toshibus/gtfsFeed",
+      "tripUpdatesUrl": "https://km.bus-vision.jp/realtime/toshibus_trip_update.bin",
+      "vehiclePositionsUrl": "https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin",
+      "alertsUrl": "https://km.bus-vision.jp/realtime/toshibus_alrt_update.bin",
+      "staticFile": "toshibus-static.json"
+    },
+    {
+      "id": "sankobus",
+      "agencyName": "産交バス",
+      "gtfsFeedUrl": "https://km.bus-vision.jp/gtfs/sankobus/gtfsFeed",
+      "tripUpdatesUrl": "https://km.bus-vision.jp/realtime/sankobus_trip_update.bin",
+      "vehiclePositionsUrl": "https://km.bus-vision.jp/realtime/sankobus_vpos_update.bin",
+      "alertsUrl": "https://km.bus-vision.jp/realtime/sankobus_alrt_update.bin",
+      "staticFile": "sankobus-static.json"
+    },
+    {
+      "id": "kumabus",
+      "agencyName": "熊本バス",
+      "gtfsFeedUrl": "https://km.bus-vision.jp/gtfs/kumabus/gtfsFeed",
+      "tripUpdatesUrl": "https://km.bus-vision.jp/realtime/kumabus_trip_update.bin",
+      "vehiclePositionsUrl": "https://km.bus-vision.jp/realtime/kumabus_vpos_update.bin",
+      "alertsUrl": "https://km.bus-vision.jp/realtime/kumabus_alrt_update.bin",
+      "staticFile": "kumabus-static.json"
+    },
+    {
+      "id": "dentetsu",
+      "agencyName": "熊本電鉄バス",
+      "gtfsFeedUrl": "https://km.bus-vision.jp/gtfs/dentetsu/gtfsFeed",
+      "tripUpdatesUrl": "https://km.bus-vision.jp/realtime/dentetsu_trip_update.bin",
+      "vehiclePositionsUrl": "https://km.bus-vision.jp/realtime/dentetsu_vpos_update.bin",
+      "alertsUrl": "https://km.bus-vision.jp/realtime/dentetsu_alrt_update.bin",
+      "staticFile": "dentetsu-static.json"
+    }
+  ],
+  "combinedStaticFile": "kumamoto-buses-static.json",
+  "defaultDatasetId": "toshibus"
+}
