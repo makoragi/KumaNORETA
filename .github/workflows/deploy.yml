@@ -36,7 +36,7 @@ jobs:
         run: |
           if ($env:VITE_TRANSIT_DATASET -eq 'all') {
             ./scripts/sync-gtfs-jp.ps1 -DatasetId all
-          else
+          } else {
             ./scripts/sync-gtfs-jp.ps1 -DatasetId toshibus
           }
       - run: pnpm build
