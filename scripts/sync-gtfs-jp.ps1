@@ -9,7 +9,7 @@ $downloadDir = Join-Path $workspaceRoot "data\gtfs-jp\_download"
 $dataRootDir = Join-Path $workspaceRoot "data\gtfs-jp"
 $publicDir = Join-Path $workspaceRoot "public\gtfs"
 $configPath = Join-Path $workspaceRoot "config\transit-operators.json"
-$config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+$config = [System.IO.File]::ReadAllText($configPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 
 if ([string]::IsNullOrWhiteSpace($DatasetId)) {
   $DatasetId = [string]$config.defaultDatasetId
