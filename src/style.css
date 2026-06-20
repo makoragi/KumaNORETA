@@ -95,9 +95,9 @@ textarea {
   position: relative;
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: 0;
   overflow: hidden;
-  padding: 34px;
+  padding: 22px 24px 20px;
   border: 1px solid rgb(255 255 255 / 30%);
   border-radius: var(--radius-xl);
   color: #fff8f4;
@@ -137,15 +137,6 @@ textarea {
   z-index: 1;
 }
 
-.eyebrow {
-  margin: 0 0 10px;
-  color: rgb(255 237 225 / 88%);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 h1 {
   margin: 0;
   font-family: var(--font-brand);
@@ -156,10 +147,11 @@ h1 {
 
 .brand-title span {
   display: inline-block;
+  vertical-align: top;
 }
 
 .brand-title span + span {
-  margin-left: 0.14em;
+  margin-left: 0;
 }
 
 .brand-title-main {
@@ -172,10 +164,10 @@ h1 {
 
 .hero-lead {
   max-width: 34rem;
-  margin: 16px 0 0;
+  margin: 8px 0 0;
   color: rgb(255 244 237 / 86%);
-  font-size: 1rem;
-  line-height: 1.8;
+  font-size: 0.96rem;
+  line-height: 1.45;
 }
 
 .status-strip {
@@ -837,11 +829,16 @@ select {
     border-radius: 24px;
   }
 
+  .hero {
+    padding: 16px 18px 14px;
+    min-height: 0;
+  }
+
   .hero::after {
     left: 16px;
     right: 16px;
     width: auto;
-    height: 64px;
+    height: 46px;
   }
 
   .status-strip,
@@ -851,8 +848,10 @@ select {
   }
 
   .status-chip {
-    gap: 4px;
-    padding: 14px 15px;
+    gap: 1px;
+    padding: 10px 12px 9px;
+    border-radius: 16px;
+    min-height: 0;
   }
 
   .section-heading,
@@ -870,15 +869,15 @@ select {
   }
 
   h1 {
-    font-size: clamp(2.3rem, 12vw, 3.6rem);
+    font-size: clamp(2rem, 10vw, 2.7rem);
+    line-height: 0.96;
+    white-space: nowrap;
   }
 
-  .brand-title span {
-    display: block;
-  }
-
-  .brand-title span + span {
-    margin-left: 0;
+  .hero-lead {
+    margin-top: 6px;
+    font-size: 0.88rem;
+    line-height: 1.35;
   }
 
   .eta-countdown {
@@ -892,5 +891,15 @@ select {
 
   .status-chip span:last-child {
     display: none;
+  }
+
+  .status-chip-label {
+    font-size: 0.64rem;
+    letter-spacing: 0.03em;
+  }
+
+  .status-chip strong {
+    font-size: 0.98rem;
+    line-height: 1.15;
   }
 }

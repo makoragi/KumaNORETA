@@ -185,7 +185,6 @@ function renderShell(root: HTMLElement, copy: string, body: string): void {
     <main class="app-shell">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Kumamoto transit companion</p>
           <h1 class="brand-title"><span class="brand-title-main">KumaNOR</span><span class="brand-title-accent">ETA</span></h1>
           <p class="hero-lead">${copy}</p>
         </div>
