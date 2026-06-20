@@ -116,10 +116,6 @@ function renderCurrentSegment(progress?: TripProgress): string {
   }
 }
 
-function renderSelectionMode(selectedTripId?: string): string {
-  return selectedTripId ? '手動選択中' : '自動推定中'
-}
-
 function renderLocationModeSummary(
   selectedLocationMode: LocationDebugMode,
   locationDebugOptions: LocationDebugOption[],
@@ -358,63 +354,75 @@ export function renderApp(params: {
       </section>
 
       <section class="priority-grid">
-        <article class="card stack-card">
-          <div class="section-heading">
-            <div>
-              <p class="panel-label">現在のバス</p>
-              <h2>乗車中の候補</h2>
-            </div>
-          </div>
-
-          ${
-            activeCandidate
-              ? `
-                <div class="bus-focus-card">
-                  <div class="bus-focus-head">
+        ${
+          activeCandidate
+            ? `
+              <details class="card stack-card collapsible-card bus-focus-panel">
+                <summary class="bus-focus-summary">
+                  <div class="bus-focus-summary-main">
                     <p class="route" style="--route-color:${activeCandidate.route.color}">${activeCandidate.route.shortName}</p>
-                    <span class="bus-focus-mini">${renderSelectionMode(selectedTripId)}</span>
                   </div>
-                  <p class="candidate-title primary-title">${routeTitle}</p>
-                  <p class="delay-summary">
-                    <span class="delay-badge ${activeDelayPresentation.badgeClass}">${activeDelayPresentation.badgeText}</span>
-                    <span>${activeDelayPresentation.detailText}</span>
-                  </p>
-                  <div class="bus-focus-facts">
-                    <div class="info-pair info-pair-wide">
-                      <span>現在位置</span>
-                      <strong>${renderCurrentSegment(tripProgress)}</strong>
-                    </div>
-                    <div class="info-pair">
-                      <span>距離</span>
-                      <strong>約${Math.round(activeCandidate.distanceMeters)}m</strong>
-                    </div>
-                    <div class="info-pair">
-                      <span>信頼度</span>
-                      <strong>${Math.round(activeCandidate.confidence * 100)}%</strong>
-                    </div>
+                  <p class="bus-focus-summary-title">${routeTitle}</p>
+                  <div class="bus-focus-summary-meta">
+                    <p><span>現在位置</span><strong>${renderCurrentSegment(tripProgress)}</strong></p>
+                    <p><span>遅延</span><strong>${activeDelayPresentation.detailText}</strong></p>
                   </div>
-                  <p class="bus-focus-note">${activeCandidate.reason}</p>
-                  ${
-                    selectedTripId
-                      ? `<button class="ghost-button" data-trip-id="${selectedTripId}" type="button">バス選択を解除</button>`
-                      : '<p class="selection-note">候補が違うときは、下の一覧から切り替えできるけん安心です。</p>'
-                  }
-                </div>
-              `
-              : `<div class="empty-panel"><p>${emptyState}</p></div>`
-          }
+                </summary>
+                <div class="collapsible-body bus-focus-body">
+                  <div class="bus-focus-card">
+                    <div class="bus-focus-facts">
+                      <div class="info-pair">
+                        <span>距離</span>
+                        <strong>約${Math.round(activeCandidate.distanceMeters)}m</strong>
+                      </div>
+                      <div class="info-pair">
+                        <span>信頼度</span>
+                        <strong>${Math.round(activeCandidate.confidence * 100)}%</strong>
+                      </div>
+                    </div>
+                    <p class="bus-focus-note">${activeCandidate.reason}</p>
+                    ${
+                      selectedTripId
+                        ? `<button class="ghost-button" data-trip-id="${selectedTripId}" type="button">バス選択を解除</button>`
+                        : '<p class="selection-note">候補が違うときは、下の一覧から切り替えできるけん安心です。</p>'
+                    }
+                  </div>
 
-          <div class="location-panel">
-            <div>
-              <p class="location-panel-label">GPS / 位置取得</p>
-              <p class="location-panel-copy">現在は ${locationModeSummary}</p>
-            </div>
-            <button class="gps-button" type="button" id="refresh-location">
-              <span class="gps-button-icon" aria-hidden="true"></span>
-              <span>GPSを取り直す</span>
-            </button>
-          </div>
-        </article>
+                  <div class="location-panel">
+                    <div>
+                      <p class="location-panel-label">GPS / 位置取得</p>
+                      <p class="location-panel-copy">現在は ${locationModeSummary}</p>
+                    </div>
+                    <button class="gps-button" type="button" id="refresh-location">
+                      <span class="gps-button-icon" aria-hidden="true"></span>
+                      <span>GPSを取り直す</span>
+                    </button>
+                  </div>
+                </div>
+              </details>
+            `
+            : `
+              <article class="card stack-card">
+                <div class="section-heading">
+                  <div>
+                    <p class="panel-label">現在のバス</p>
+                    <h2>乗車中の候補</h2>
+                  </div>
+                </div>
+                <div class="empty-panel"><p>${emptyState}</p></div>
+                <div class="location-panel">
+                  <div>
+                    <p class="location-panel-label">GPS / 位置取得</p>
+                    <p class="location-panel-copy">現在は ${locationModeSummary}</p>
+                  </div>
+                  <button class="gps-button" type="button" id="refresh-location">
+                    <span class="gps-button-icon" aria-hidden="true"></span>
+                    <span>GPSを取り直す</span>
+                  </button>
+                </div>
+              </article>
+            `
+        }
 
         <article class="card stack-card eta-card">
           <div class="section-heading section-heading-tight">
