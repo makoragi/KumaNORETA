@@ -17,6 +17,13 @@ type DelayPresentation = {
   detailText: string
 }
 
+export type FatalErrorDetails = {
+  phase?: string
+  message?: string
+  stack?: string
+  hint?: string
+}
+
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 
@@ -220,6 +227,41 @@ export function renderFatalError(root: HTMLElement): void {
       <section class="card stack-card">
         <h2>エラー</h2>
         <p class="muted">ページを再読み込みしても直らない場合は、ブラウザの開発者ツールで詳細を確認してください。</p>
+      </section>
+    `,
+  )
+}
+
+export function renderRuntimeError(root: HTMLElement, details?: FatalErrorDetails): void {
+  const metadata = [
+    details?.phase ? `<p><strong>発生箇所:</strong> ${details.phase}</p>` : '',
+    details?.message ? `<p><strong>エラー:</strong> ${details.message}</p>` : '',
+    details?.hint ? `<p><strong>想定原因:</strong> ${details.hint}</p>` : '',
+  ]
+    .filter(Boolean)
+    .join('')
+
+  const stack = details?.stack
+    ? `
+      <details class="fatal-stack">
+        <summary>技術詳細を表示</summary>
+        <pre>${details.stack}</pre>
+      </details>
+    `
+    : ''
+
+  renderShell(
+    root,
+    '画面の表示に失敗しました',
+    `
+      <section class="card stack-card">
+        <h2>エラー</h2>
+        <p class="muted">
+          空白表示のままにならないよう、検出した例外をこの画面に切り替えています。
+          ブラウザや通信の問題か、描画処理の例外かを下の情報で切り分けできます。
+        </p>
+        ${metadata ? `<div class="diagnostics-grid">${metadata}</div>` : ''}
+        ${stack}
       </section>
     `,
   )

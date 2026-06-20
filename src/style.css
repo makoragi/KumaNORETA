@@ -760,6 +760,29 @@ select {
   background: #fff1d7;
 }
 
+.fatal-stack {
+  margin-top: 16px;
+}
+
+.fatal-stack summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.fatal-stack pre {
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgb(255 251 248 / 88%);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .collapsible-card {
   overflow: hidden;
 }

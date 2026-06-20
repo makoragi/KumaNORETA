@@ -15,7 +15,7 @@ import {
   type GtfsRtCollectionFetchStatus,
 } from './services/gtfsRt'
 import type { BusCandidate, BusEstimationDiagnostics, Stop, TripUpdate } from './types'
-import { renderApp, renderFatalError, renderLoadingApp } from './ui/render'
+import { renderApp, renderLoadingApp, renderRuntimeError } from './ui/render'
 
 const VEHICLE_REFRESH_INTERVAL_MS = 15_000
 const SELECTED_TRIP_STORAGE_KEY = 'kumanoreta:selectedTripId'
@@ -45,10 +45,54 @@ function persistValue(key: string, value?: string): void {
   }
 }
 
+function normalizeError(error: unknown): { message: string; stack?: string; hint?: string } {
+  if (error instanceof Error) {
+    const lower = `${error.name} ${error.message}`.toLowerCase()
+    const hint = lower.includes('fetch')
+      ? '通信失敗の可能性があります。ネットワーク、CORS、GTFS-RT 配信先を確認してください。'
+      : lower.includes('geolocation') || lower.includes('permission')
+        ? '位置情報の取得に失敗した可能性があります。ブラウザの位置情報権限を確認してください。'
+        : lower.includes('app root')
+          ? '描画先の DOM が見つかっていません。HTML 側の #app を確認してください。'
+          : 'JavaScript 実行時エラーの可能性があります。ブラウザの開発者ツールも確認してください。'
+
+    return {
+      message: error.message || error.name,
+      stack: error.stack,
+      hint,
+    }
+  }
+
+  return {
+    message: typeof error === 'string' ? error : JSON.stringify(error),
+    hint: '想定外の値が throw されています。',
+  }
+}
+
+function renderErrorState(root: HTMLElement, phase: string, error: unknown): void {
+  const normalized = normalizeError(error)
+  renderRuntimeError(root, {
+    phase,
+    message: normalized.message,
+    stack: normalized.stack,
+    hint: normalized.hint,
+  })
+}
+
 async function bootstrap() {
   const root = document.querySelector<HTMLDivElement>('#app')
   if (!root) throw new Error('App root element was not found')
   renderLoadingApp(root)
+
+  window.addEventListener('error', (event) => {
+    console.error('Unhandled error', event.error)
+    renderErrorState(root, 'runtime error', event.error ?? event.message)
+  })
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection', event.reason)
+    renderErrorState(root, 'unhandled promise rejection', event.reason)
+  })
 
   let selectedLocationMode: LocationDebugMode = loadLocationDebugMode()
   const staticData = await loadStaticGtfsData()
@@ -171,6 +215,9 @@ async function bootstrap() {
         tripUpdatesByTripId,
         tripProgress,
       })
+    } catch (error) {
+      console.error('Failed during vehicle refresh', error)
+      renderErrorState(root, 'vehicle refresh', error)
     } finally {
       refreshInProgress = false
     }
@@ -197,6 +244,6 @@ bootstrap().catch((error: unknown) => {
   console.error(error)
   const root = document.querySelector<HTMLDivElement>('#app')
   if (root) {
-    renderFatalError(root)
+    renderErrorState(root, 'bootstrap', error)
   }
 })
