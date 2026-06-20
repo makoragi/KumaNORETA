@@ -85,7 +85,7 @@ export type BusEstimationDiagnostics = {
   note?: string
   totalVehicles: number
   vehicleSource: 'gtfs-rt' | 'mock'
-  positionSource: 'browser' | 'mock-fallback' | 'override'
+  positionSource: 'browser' | 'mock-fallback' | 'debug-preset'
   vehicleFetchedAt: Date
 }
 

@@ -101,6 +101,17 @@ h2 {
   font-size: 0.9rem;
 }
 
+.status-select {
+  min-width: 0;
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #17202a;
+  background: #fff;
+}
+
 .status-chip-label {
   color: #0f766e;
   font-size: 0.74rem;
@@ -362,6 +373,33 @@ select {
   color: #92400e;
 }
 
+.debug-controls {
+  margin-bottom: 16px;
+}
+
+.debug-controls-label {
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.debug-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.debug-select {
+  max-width: 320px;
+  margin: 0;
+}
+
+.debug-current-location {
+  font-size: 0.85rem;
+}
+
 .mode-pill {
   margin: 0;
   padding: 8px 12px;
@@ -466,6 +504,15 @@ select {
 
   .status-chip > span:not(.status-chip-label) {
     display: none;
+  }
+
+  .debug-controls-row {
+    align-items: stretch;
+  }
+
+  .debug-select {
+    max-width: none;
+    width: 100%;
   }
 
   .section-heading,

@@ -1,3 +1,4 @@
+import type { LocationDebugMode, LocationDebugOption, PositionSource } from '../services/gps'
 import type { GtfsRtCollectionFetchStatus } from '../services/gtfsRt'
 import type {
   BusCandidate,
@@ -19,6 +20,28 @@ type DelayPresentation = {
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 
+function renderPositionSource(source: PositionSource): string {
+  switch (source) {
+    case 'browser':
+      return 'GPS'
+    case 'debug-preset':
+      return 'デバッグ地点'
+    case 'mock-fallback':
+      return 'フォールバック'
+  }
+}
+
+function renderTripUpdatesStatus(status: GtfsRtCollectionFetchStatus): string {
+  switch (status) {
+    case 'ok':
+      return 'GTFS-RT'
+    case 'mock':
+      return 'モック'
+    case 'failed':
+      return '取得失敗'
+  }
+}
+
 function resolveDelayPresentation(
   tripUpdate: TripUpdate | undefined,
   tripUpdatesFetchStatus: GtfsRtCollectionFetchStatus,
@@ -26,8 +49,8 @@ function resolveDelayPresentation(
   if (tripUpdatesFetchStatus === 'failed') {
     return {
       badgeClass: 'delay-badge-unknown',
-      badgeText: '取得失敗',
-      detailText: '遅延情報の取得に失敗',
+      badgeText: '遅延不明',
+      detailText: 'TripUpdates の取得に失敗しました',
     }
   }
 
@@ -35,16 +58,15 @@ function resolveDelayPresentation(
     return {
       badgeClass: 'delay-badge-unknown',
       badgeText: '情報なし',
-      detailText:
-        tripUpdatesFetchStatus === 'mock' ? 'モックの遅延情報を表示中' : 'この便の遅延情報は未配信',
+      detailText: tripUpdatesFetchStatus === 'mock' ? 'モックの遅延情報を表示中' : 'この便の遅延情報は未取得です',
     }
   }
 
   if (tripUpdate.delaySeconds === undefined) {
     return {
       badgeClass: 'delay-badge-unknown',
-      badgeText: '未提供',
-      detailText: '遅延情報未提供',
+      badgeText: '遅延不明',
+      detailText: '遅延秒数が含まれていません',
     }
   }
 
@@ -52,8 +74,8 @@ function resolveDelayPresentation(
   if (roundedMinutes === 0) {
     return {
       badgeClass: 'delay-badge-on-time',
-      badgeText: '定刻',
-      detailText: '遅延なし',
+      badgeText: '定時',
+      detailText: 'ほぼ定刻です',
     }
   }
 
@@ -61,15 +83,41 @@ function resolveDelayPresentation(
     return {
       badgeClass: 'delay-badge-late',
       badgeText: `${roundedMinutes}分遅れ`,
-      detailText: `${roundedMinutes}分遅れ`,
+      detailText: `${roundedMinutes}分遅れです`,
     }
   }
 
   return {
     badgeClass: 'delay-badge-early',
     badgeText: `${roundedMinutes}分早着`,
-    detailText: `${roundedMinutes}分早着`,
+    detailText: `${roundedMinutes}分早着です`,
   }
+}
+
+function renderCurrentSegment(progress?: TripProgress): string {
+  if (!progress) return '乗車中の区間を特定できませんでした'
+
+  switch (progress.state) {
+    case 'single-stop-trip':
+      return `${progress.nextStop?.name ?? '終点'}のみの便です`
+    case 'at-final-stop':
+      return `${progress.nextStop?.name ?? '終点'}に到着済みです`
+    case 'before-first-stop':
+      return `${progress.nextStop?.name ?? '始発停留所'}へ向かう前です`
+    case 'between-stops':
+      return `${progress.previousStop?.name ?? '前停留所'} と ${progress.nextStop?.name ?? '次停留所'} の間です`
+  }
+}
+
+function renderSelectionMode(selectedTripId?: string): string {
+  return selectedTripId ? '手動選択中' : '自動推定中'
+}
+
+function renderLocationModeSummary(
+  selectedLocationMode: LocationDebugMode,
+  locationDebugOptions: LocationDebugOption[],
+): string {
+  return locationDebugOptions.find((option) => option.id === selectedLocationMode)?.label ?? 'GPSを使う'
 }
 
 function renderCandidateCard(params: {
@@ -96,7 +144,7 @@ function renderCandidateCard(params: {
         <p class="candidate-rank">候補 ${rank}</p>
       </div>
       <p class="candidate-title">${candidate.route.longName}</p>
-      ${candidate.isWithinMatchingRange ? '' : '<p class="status-badge">推定範囲外</p>'}
+      ${candidate.isWithinMatchingRange ? '' : '<p class="status-badge">推定対象外</p>'}
       <p class="muted">遅延: ${delayPresentation.detailText}</p>
       <p class="muted">距離 約${Math.round(candidate.distanceMeters)}m / 信頼度 ${Math.round(candidate.confidence * 100)}%</p>
       <p class="muted">${candidate.reason}</p>
@@ -105,24 +153,6 @@ function renderCandidateCard(params: {
       </button>
     </li>
   `
-}
-
-function renderCurrentSegment(progress?: TripProgress): string {
-  if (!progress) return '選択中のバスが確定すると表示します'
-
-  switch (progress.state) {
-    case 'single-stop-trip':
-      return `${progress.nextStop?.name ?? 'この停留所'} のみの便です`
-    case 'at-final-stop':
-      return `${progress.nextStop?.name ?? '終点'} に到着済み`
-    case 'between-stops':
-    case 'before-first-stop':
-      return `${progress.previousStop?.name ?? '前停留所'} と ${progress.nextStop?.name ?? '次停留所'} の間`
-  }
-}
-
-function renderSelectionMode(selectedTripId?: string): string {
-  return selectedTripId ? '手動で乗車中' : '自動推定中'
 }
 
 export function renderLoadingApp(root: HTMLElement): void {
@@ -136,7 +166,7 @@ export function renderLoadingApp(root: HTMLElement): void {
 
       <section class="card">
         <h2>読み込み中</h2>
-        <p class="muted">候補バス・遅延・ETA を準備しています。</p>
+        <p class="muted">候補バス、遅延、ETA を準備しています。</p>
       </section>
     </main>
   `
@@ -170,8 +200,11 @@ export function renderApp(params: {
   eta?: EtaResult
   nearbyStops: NearbyStop[]
   destinationStops: Stop[]
+  locationDebugOptions: LocationDebugOption[]
   onSelectCandidate: (tripId: string) => void
   onSelectDestination: (stopId: string) => void
+  onSelectLocationMode: (mode: LocationDebugMode) => void | Promise<void>
+  selectedLocationMode: LocationDebugMode
   selectedDestinationStopId?: string
   selectedTripId?: string
   stops: Stop[]
@@ -190,8 +223,11 @@ export function renderApp(params: {
     eta,
     nearbyStops,
     destinationStops,
+    locationDebugOptions,
     onSelectCandidate,
     onSelectDestination,
+    onSelectLocationMode,
+    selectedLocationMode,
     selectedDestinationStopId,
     selectedTripId,
     stops,
@@ -202,26 +238,27 @@ export function renderApp(params: {
 
   const emptyState =
     diagnostics.totalVehicles === 0
-      ? '車両データを取得できていません。通信状況やプロキシ設定を確認してください。'
+      ? '車両データを取得できていません。通信状況かプロキシ設定を確認してください。'
       : diagnostics.matchedVehicles === 0
-        ? '車両データは取得できましたが、現在地と一致する候補が見つかっていません。'
-        : '候補に入る車両はありますが、自動推定に使える先頭候補がまだ定まりません。'
+        ? '現在地の近くで一致する候補バスが見つかりませんでした。'
+        : '候補バスはありますが、乗車中と判断できる車両はありませんでした。'
 
   const candidateSummary = selectedTripId
     ? `選択中のバスを含む候補 (${candidates.length}件)`
     : `近いバス候補を表示する (${candidates.length}件)`
 
   const nearbyStopsSummary =
-    nearbyStops.length > 0 ? `近い停留所を表示する (${nearbyStops.length}件)` : '近い停留所を表示する'
+    nearbyStops.length > 0 ? `近くの停留所を表示する (${nearbyStops.length}件)` : '近くの停留所を表示する'
 
   const activeDelayPresentation = resolveDelayPresentation(activeTripUpdate, tripUpdatesFetchStatus)
+  const locationModeSummary = renderLocationModeSummary(selectedLocationMode, locationDebugOptions)
 
   root.innerHTML = `
     <main class="app-shell">
       <section class="hero">
         <p class="eyebrow">Kumamoto bus ride companion</p>
         <h1>KumaNORETA</h1>
-        <p>いま乗っているバスを推定して、降車予定停留所までの到着予想を表示します。</p>
+        <p>いま乗っているバスを推定して、次の降車停留所までの到着見込みを表示します。</p>
       </section>
 
       <section class="status-strip">
@@ -232,11 +269,11 @@ export function renderApp(params: {
         </div>
         <div class="status-chip">
           <span class="status-chip-label">位置ソース</span>
-          <strong>${diagnostics.positionSource}</strong>
+          <strong>${renderPositionSource(diagnostics.positionSource)}</strong>
           <span>車両更新 ${formatTime(diagnostics.vehicleFetchedAt)}</span>
         </div>
         <div class="status-chip">
-          <span class="status-chip-label">表示モード</span>
+          <span class="status-chip-label">推定モード</span>
           <strong>${renderSelectionMode(selectedTripId)}</strong>
           <span>候補 ${diagnostics.candidateCount}件</span>
         </div>
@@ -246,7 +283,7 @@ export function renderApp(params: {
         <article class="card priority-card">
           <div class="section-heading">
             <div>
-              <p class="panel-label">最重要表示</p>
+              <p class="panel-label">最優先表示</p>
               <h2>乗車中のバス</h2>
             </div>
             ${activeCandidate ? `<p class="mode-pill ${selectedTripId ? 'mode-pill-selected' : ''}">${renderSelectionMode(selectedTripId)}</p>` : ''}
@@ -266,7 +303,7 @@ export function renderApp(params: {
                 ${
                   selectedTripId
                     ? `<button class="ghost-button" data-trip-id="${selectedTripId}" type="button">バス選択を解除</button>`
-                    : '<p class="selection-note">候補が違う場合は、下の候補一覧から手動で選べます。</p>'
+                    : '<p class="selection-note">候補が違う場合は、下の一覧から手動で切り替えできます。</p>'
                 }
               `
               : `<p>${emptyState}</p>`
@@ -276,11 +313,11 @@ export function renderApp(params: {
         <article class="card priority-card eta-card">
           <div class="section-heading">
             <div>
-              <p class="panel-label">次に見る</p>
-              <h2>降車予定停留所と ETA</h2>
+              <p class="panel-label">次に降りる</p>
+              <h2>降車停留所と ETA</h2>
             </div>
           </div>
-          <label for="destination">降車予定停留所</label>
+          <label for="destination">降車停留所</label>
           <select id="destination" ${destinationStops.length > 0 ? '' : 'disabled'}>
             ${destinationStops
               .map(
@@ -296,15 +333,15 @@ export function renderApp(params: {
                 <div class="eta-meta">
                   <p><strong>あと約${eta.minutesUntilArrival}分</strong></p>
                   <p>残り約${Math.round(eta.remainingDistanceMeters)}m</p>
-                  <p>${eta.source === 'distance-model' ? '距離ベース推定' : eta.source}</p>
+                  <p>${eta.source === 'distance-model' ? '距離モデル推定' : eta.source}</p>
                 </div>
               `
-              : '<p>乗車中のバスが確定すると ETA を表示します。</p>'
+              : '<p>乗車中のバスを特定すると ETA を表示します。</p>'
           }
           ${
             stops.length > 0
               ? `<p class="muted">この便の停留所数: ${stops.length} 件</p>`
-              : '<p class="muted">バスが確定すると降車予定停留所を選べます。</p>'
+              : '<p class="muted">バスを特定すると降車停留所を選べます。</p>'
           }
         </article>
       </section>
@@ -315,7 +352,7 @@ export function renderApp(params: {
           <div class="section-heading">
             <div>
               <h2>近いバス候補</h2>
-              <p class="muted">自動推定の候補です。必要なら手動で選択できます。</p>
+              <p class="muted">自動推定の候補です。違う場合は手動で選択してください。</p>
             </div>
           </div>
           ${
@@ -344,8 +381,8 @@ export function renderApp(params: {
         <div class="collapsible-body">
           <div class="section-heading">
             <div>
-              <h2>近い停留所</h2>
-              <p class="muted">候補が出ない場合の現在地確認用です。</p>
+              <h2>近くの停留所</h2>
+              <p class="muted">現在地から近い順に並べています。</p>
             </div>
           </div>
           ${
@@ -368,22 +405,37 @@ export function renderApp(params: {
       </details>
 
       <details class="card collapsible-card diagnostics-card">
-        <summary>推定用の診断情報を表示する</summary>
+        <summary>デバッグ情報を表示する</summary>
         <div class="collapsible-body">
           <div class="section-heading">
             <div>
               <h2>診断情報</h2>
-              <p class="muted">開発用の確認情報です。</p>
+              <p class="muted">動作確認用の内部状態です。</p>
+            </div>
+          </div>
+          <div class="debug-controls">
+            <label class="debug-controls-label" for="location-mode">位置デバッグ</label>
+            <div class="debug-controls-row">
+              <select id="location-mode" class="status-select debug-select">
+                ${locationDebugOptions
+                  .map(
+                    (option) =>
+                      `<option value="${option.id}" ${selectedLocationMode === option.id ? 'selected' : ''}>${option.label}</option>`,
+                  )
+                  .join('')}
+              </select>
+              <span class="muted debug-current-location">現在: ${locationModeSummary}</span>
             </div>
           </div>
           <div class="diagnostics-grid">
-            <p><strong>車両データソース:</strong> ${diagnostics.vehicleSource}</p>
-            <p><strong>最終更新:</strong> ${formatTime(diagnostics.vehicleFetchedAt)}（約15秒ごと更新）</p>
-            <p><strong>取得車両数:</strong> ${diagnostics.totalVehicles} 台</p>
-            <p><strong>trip/route 一致数:</strong> ${diagnostics.matchedVehicles} 台</p>
-            <p><strong>推定範囲内の一致:</strong> ${diagnostics.nearbyMatchedVehicles} 台</p>
-            <p><strong>表示候補数:</strong> ${diagnostics.candidateCount} 件</p>
-            <p><strong>TripUpdates取得:</strong> ${tripUpdatesFetchStatus}</p>
+            <p><strong>位置ソース:</strong> ${renderPositionSource(diagnostics.positionSource)}</p>
+            <p><strong>車両ソース:</strong> ${diagnostics.vehicleSource}</p>
+            <p><strong>最終更新:</strong> ${formatTime(diagnostics.vehicleFetchedAt)}</p>
+            <p><strong>総車両数:</strong> ${diagnostics.totalVehicles} 台</p>
+            <p><strong>trip/route 一致:</strong> ${diagnostics.matchedVehicles} 台</p>
+            <p><strong>近距離一致:</strong> ${diagnostics.nearbyMatchedVehicles} 台</p>
+            <p><strong>候補件数:</strong> ${diagnostics.candidateCount} 件</p>
+            <p><strong>TripUpdates:</strong> ${renderTripUpdatesStatus(tripUpdatesFetchStatus)}</p>
           </div>
           ${diagnostics.note ? `<p class="diagnostics-note">${diagnostics.note}</p>` : ''}
         </div>
@@ -405,5 +457,10 @@ export function renderApp(params: {
     if (destinationSelect.value) {
       onSelectDestination(destinationSelect.value)
     }
+  })
+
+  const locationModeSelect = root.querySelector<HTMLSelectElement>('#location-mode')
+  locationModeSelect?.addEventListener('change', () => {
+    onSelectLocationMode(locationModeSelect.value as LocationDebugMode)
   })
 }

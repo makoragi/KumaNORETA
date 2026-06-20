@@ -1,7 +1,13 @@
 import './style.css'
 import { collectBusEstimationDiagnostics, findNearbyStops, rankBusCandidates } from './domain/busEstimator'
 import { calculateEta, estimateTripProgress } from './domain/eta'
-import { getCurrentPosition } from './services/gps'
+import {
+  getCurrentPosition,
+  loadLocationDebugMode,
+  locationDebugOptions,
+  persistLocationDebugMode,
+  type LocationDebugMode,
+} from './services/gps'
 import { loadStaticGtfsData } from './services/gtfsJp'
 import {
   fetchTripUpdatesWithStatus,
@@ -44,10 +50,9 @@ async function bootstrap() {
   if (!root) throw new Error('App root element was not found')
   renderLoadingApp(root)
 
-  const [positionResult, staticData] = await Promise.all([getCurrentPosition(), loadStaticGtfsData()])
-
-  const position = positionResult.position
-  const nearbyStops = findNearbyStops(position, staticData.stops)
+  let selectedLocationMode: LocationDebugMode = loadLocationDebugMode()
+  const staticData = await loadStaticGtfsData()
+  let positionResult = await getCurrentPosition(selectedLocationMode)
   const stopsById = new Map(staticData.stops.map((stop) => [stop.id, stop]))
   const isMockVehicleSource = import.meta.env.VITE_GTFS_RT_USE_MOCK !== 'false'
 
@@ -78,9 +83,12 @@ async function bootstrap() {
         fetchVehiclePositions(),
         fetchTripUpdatesWithStatus(),
       ])
+
       const vehicleFetchedAt = new Date()
       const tripUpdates = tripUpdatesResult.tripUpdates
       const tripUpdatesByTripId = buildTripUpdatesByTripId(tripUpdates)
+      const position = positionResult.position
+      const nearbyStops = findNearbyStops(position, staticData.stops)
       const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes)
       const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
       const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
@@ -112,7 +120,7 @@ async function bootstrap() {
         vehicleSource: isMockVehicleSource ? 'mock' : 'gtfs-rt',
         note:
           !isMockVehicleSource && vehicles.length > 0 && rawDiagnostics.matchedVehicles === 0
-            ? 'GTFS-RT の tripId と静的 GTFS の便データが一致していない可能性があります。'
+            ? 'GTFS-RT の tripId と静的 GTFS の便データが一致せず、推定精度が下がっている可能性があります。'
             : undefined,
       }
 
@@ -127,6 +135,7 @@ async function bootstrap() {
         eta,
         nearbyStops,
         destinationStops,
+        locationDebugOptions,
         onSelectCandidate: (tripId) => {
           if (selectedTripId === tripId) {
             selectedTripId = undefined
@@ -144,6 +153,13 @@ async function bootstrap() {
           persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
           void refreshVehicles()
         },
+        onSelectLocationMode: async (mode) => {
+          selectedLocationMode = mode
+          persistLocationDebugMode(mode)
+          positionResult = await getCurrentPosition(mode)
+          await refreshVehicles()
+        },
+        selectedLocationMode,
         selectedDestinationStopId,
         selectedTripId,
         stops: candidateStops,
