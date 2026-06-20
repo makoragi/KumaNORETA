@@ -30,15 +30,15 @@ jobs:
       - uses: actions/configure-pages@v5
       - run: pnpm install --frozen-lockfile
       - name: Generate static GTFS artifacts
-        shell: bash
+        shell: pwsh
         env:
           VITE_TRANSIT_DATASET: ${{ vars.VITE_TRANSIT_DATASET || 'toshibus' }}
         run: |
-          if [ "$VITE_TRANSIT_DATASET" = "all" ]; then
-            pnpm gtfs:sync:all
+          if ($env:VITE_TRANSIT_DATASET -eq 'all') {
+            ./scripts/sync-gtfs-jp.ps1 -DatasetId all
           else
-            pnpm gtfs:sync
-          fi
+            ./scripts/sync-gtfs-jp.ps1 -DatasetId toshibus
+          }
       - run: pnpm build
         env:
           VITE_TRANSIT_DATASET: ${{ vars.VITE_TRANSIT_DATASET || 'toshibus' }}
