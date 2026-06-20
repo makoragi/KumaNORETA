@@ -125,14 +125,24 @@ $routes = Import-Csv (Join-Path $extractDir "routes.txt") | ForEach-Object {
 }
 
 $tripStopIds = @{}
+$tripStopTimes = @{}
 Import-Csv (Join-Path $extractDir "stop_times.txt") |
   Sort-Object trip_id, @{ Expression = { [int]$_.stop_sequence } } |
   ForEach-Object {
     if (-not $tripStopIds.ContainsKey($_.trip_id)) {
       $tripStopIds[$_.trip_id] = [System.Collections.Generic.List[string]]::new()
     }
+    if (-not $tripStopTimes.ContainsKey($_.trip_id)) {
+      $tripStopTimes[$_.trip_id] = [System.Collections.Generic.List[object]]::new()
+    }
 
     $tripStopIds[$_.trip_id].Add($_.stop_id)
+    $tripStopTimes[$_.trip_id].Add([ordered]@{
+      stopId = $_.stop_id
+      stopSequence = [int]$_.stop_sequence
+      arrivalTime = if ([string]::IsNullOrWhiteSpace($_.arrival_time)) { $null } else { $_.arrival_time }
+      departureTime = if ([string]::IsNullOrWhiteSpace($_.departure_time)) { $null } else { $_.departure_time }
+    })
   }
 
 $trips = Import-Csv (Join-Path $extractDir "trips.txt") | ForEach-Object {
@@ -140,6 +150,7 @@ $trips = Import-Csv (Join-Path $extractDir "trips.txt") | ForEach-Object {
   $directionId = if ([string]::IsNullOrWhiteSpace($_.direction_id)) { $null } else { $_.direction_id }
   $officeId = if ([string]::IsNullOrWhiteSpace($_.jp_office_id)) { $null } else { $_.jp_office_id }
   $stopIds = if ($tripStopIds.ContainsKey($_.trip_id)) { $tripStopIds[$_.trip_id].ToArray() } else { @() }
+  $stopTimes = if ($tripStopTimes.ContainsKey($_.trip_id)) { $tripStopTimes[$_.trip_id].ToArray() } else { @() }
 
   [ordered]@{
     id = $_.trip_id
@@ -149,6 +160,7 @@ $trips = Import-Csv (Join-Path $extractDir "trips.txt") | ForEach-Object {
     directionId = $directionId
     officeId = $officeId
     stopIds = $stopIds
+    stopTimes = $stopTimes
   }
 }
 

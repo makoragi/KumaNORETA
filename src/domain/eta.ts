@@ -1,5 +1,5 @@
 import { distanceMeters } from './busEstimator'
-import type { BusCandidate, EtaResult, Stop, TripProgress } from '../types'
+import type { BusCandidate, EtaResult, Stop, TripProgress, TripStopTime } from '../types'
 
 const BUS_SPEED_METERS_PER_MINUTE = 250
 const DWELL_MINUTES_PER_STOP = 0.75
@@ -46,6 +46,33 @@ function resolveTripStops(candidate: BusCandidate, stops: Stop[]): Stop[] {
   return candidate.trip.stopIds
     .map((stopId) => stopsById.get(stopId))
     .filter((stop): stop is Stop => stop !== undefined)
+}
+
+function resolveScheduledStopTime(candidate: BusCandidate, stopId: string): TripStopTime | undefined {
+  return candidate.trip.stopTimes?.find((stopTime) => stopTime.stopId === stopId)
+}
+
+function parseGtfsTimeToDate(time: string, referenceDate: Date): Date | undefined {
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(time)
+  if (!match) return undefined
+
+  const hours = Number.parseInt(match[1], 10)
+  const minutes = Number.parseInt(match[2], 10)
+  const seconds = Number.parseInt(match[3] ?? '0', 10)
+  if ([hours, minutes, seconds].some((value) => Number.isNaN(value))) return undefined
+
+  const scheduled = new Date(referenceDate)
+  scheduled.setHours(0, 0, 0, 0)
+  scheduled.setTime(scheduled.getTime() + ((hours * 60 + minutes) * 60 + seconds) * 1_000)
+
+  const halfDayMs = 12 * 60 * 60 * 1_000
+  if (scheduled.getTime() - referenceDate.getTime() > halfDayMs) {
+    scheduled.setDate(scheduled.getDate() - 1)
+  } else if (referenceDate.getTime() - scheduled.getTime() > halfDayMs) {
+    scheduled.setDate(scheduled.getDate() + 1)
+  }
+
+  return scheduled
 }
 
 export function estimateTripProgress(candidate: BusCandidate, stops: Stop[]): TripProgress | undefined {
@@ -149,10 +176,17 @@ export function calculateEta(
     1,
     Math.ceil(remainingDistanceMeters / BUS_SPEED_METERS_PER_MINUTE + remainingStops * DWELL_MINUTES_PER_STOP),
   )
+  const scheduledStopTime = resolveScheduledStopTime(candidate, destinationStopId)
+  const scheduledArrival = scheduledStopTime?.arrivalTime
+    ? parseGtfsTimeToDate(scheduledStopTime.arrivalTime, candidate.vehicle.timestamp)
+    : undefined
+
+  const etaReferenceTime = candidate.vehicle.timestamp
 
   return {
     stop,
-    estimatedArrival: new Date(Date.now() + minutesUntilArrival * 60_000),
+    estimatedArrival: new Date(etaReferenceTime.getTime() + minutesUntilArrival * 60_000),
+    scheduledArrival,
     minutesUntilArrival,
     remainingDistanceMeters,
     source: 'distance-model',

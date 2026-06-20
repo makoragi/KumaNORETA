@@ -123,6 +123,23 @@ function renderLocationModeSummary(
   return locationDebugOptions.find((option) => option.id === selectedLocationMode)?.label ?? 'GPSを使う'
 }
 
+function captureDetailsOpenState(root: HTMLElement): Map<string, boolean> {
+  return new Map(
+    Array.from(root.querySelectorAll<HTMLDetailsElement>('details[data-panel-id]')).map((details) => [
+      details.dataset.panelId ?? '',
+      details.open,
+    ]),
+  )
+}
+
+function renderDetailsOpenAttribute(
+  openStates: Map<string, boolean>,
+  panelId: string,
+  defaultOpen: boolean,
+): string {
+  return (openStates.get(panelId) ?? defaultOpen) ? 'open' : ''
+}
+
 function renderEtaAccent(eta?: EtaResult): string {
   if (!eta) {
     return `
@@ -142,6 +159,7 @@ function renderEtaAccent(eta?: EtaResult): string {
         <span class="eta-countdown-suffix">分</span>
       </div>
       <p class="eta-stop-name">${eta.stop.name}</p>
+      ${eta.scheduledArrival ? `<p class="eta-arrival-time">定刻 ${formatTime(eta.scheduledArrival)} ごろ</p>` : ''}
       <p class="eta-arrival-time">${formatTime(eta.estimatedArrival)} ごろ到着見込み</p>
       <p class="eta-dialect">もうすぐたい。</p>
     </div>
@@ -287,6 +305,7 @@ export function renderApp(params: {
   tripUpdatesFetchStatus: GtfsRtCollectionFetchStatus
   tripProgress?: TripProgress
 }): void {
+  const detailsOpenStates = captureDetailsOpenState(params.root)
   const {
     root,
     position,
@@ -357,7 +376,7 @@ export function renderApp(params: {
         ${
           activeCandidate
             ? `
-              <details class="card stack-card collapsible-card bus-focus-panel">
+              <details class="card stack-card collapsible-card bus-focus-panel" data-panel-id="bus-focus" ${renderDetailsOpenAttribute(detailsOpenStates, 'bus-focus', true)}>
                 <summary class="bus-focus-summary">
                   <div class="bus-focus-summary-main">
                     <p class="route" style="--route-color:${activeCandidate.route.color}">${activeCandidate.route.shortName}</p>
@@ -450,7 +469,6 @@ export function renderApp(params: {
             eta
               ? `
                 <div class="eta-meta">
-                  <p><span>到着時刻</span><strong>${formatTime(eta.estimatedArrival)}</strong></p>
                   <p><span>残り距離</span><strong>約${Math.round(eta.remainingDistanceMeters)}m</strong></p>
                   <p><span>推定方法</span><strong>${eta.source === 'distance-model' ? '距離モデル推定' : eta.source}</strong></p>
                 </div>
@@ -466,7 +484,7 @@ export function renderApp(params: {
         </article>
       </section>
 
-      <details class="card collapsible-card" ${selectedTripId ? '' : 'open'}>
+      <details class="card collapsible-card" data-panel-id="candidates" ${renderDetailsOpenAttribute(detailsOpenStates, 'candidates', !selectedTripId)}>
         <summary>${candidateSummary}</summary>
         <div class="collapsible-body">
           <div class="section-heading">
@@ -496,7 +514,7 @@ export function renderApp(params: {
         </div>
       </details>
 
-      <details class="card collapsible-card">
+      <details class="card collapsible-card" data-panel-id="nearby-stops" ${renderDetailsOpenAttribute(detailsOpenStates, 'nearby-stops', false)}>
         <summary>${nearbyStopsSummary}</summary>
         <div class="collapsible-body">
           <div class="section-heading">
@@ -524,7 +542,7 @@ export function renderApp(params: {
         </div>
       </details>
 
-      <details class="card collapsible-card diagnostics-card">
+      <details class="card collapsible-card diagnostics-card" data-panel-id="diagnostics" ${renderDetailsOpenAttribute(detailsOpenStates, 'diagnostics', false)}>
         <summary>デバッグ情報を表示する</summary>
         <div class="collapsible-body">
           <div class="section-heading">
@@ -556,6 +574,13 @@ export function renderApp(params: {
             <p><strong>近距離一致:</strong> ${diagnostics.nearbyMatchedVehicles} 台</p>
             <p><strong>候補件数:</strong> ${diagnostics.candidateCount} 件</p>
             <p><strong>TripUpdates:</strong> ${renderTripUpdatesStatus(tripUpdatesFetchStatus)}</p>
+            <p><strong>選択 tripId:</strong> ${selectedTripId ?? '-'}</p>
+            <p><strong>選択 routeId:</strong> ${activeCandidate?.trip.routeId ?? '-'}</p>
+            <p><strong>推測 tripId:</strong> ${estimatedCandidate?.trip.id ?? '-'}</p>
+            <p><strong>推測 routeId:</strong> ${estimatedCandidate?.trip.routeId ?? '-'}</p>
+            <p><strong>表示 vehicleId:</strong> ${activeCandidate?.vehicle.vehicleId ?? '-'}</p>
+            <p><strong>車両時刻:</strong> ${activeCandidate ? formatTime(activeCandidate.vehicle.timestamp) : '-'}</p>
+            <p><strong>TripUpdate時刻:</strong> ${activeTripUpdate ? formatTime(activeTripUpdate.timestamp) : '-'}</p>
           </div>
           ${diagnostics.note ? `<p class="diagnostics-note">${diagnostics.note}</p>` : ''}
         </div>

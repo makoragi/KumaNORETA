@@ -28,6 +28,14 @@ export type Trip = {
   directionId?: string
   officeId?: string
   stopIds: string[]
+  stopTimes?: TripStopTime[]
+}
+
+export type TripStopTime = {
+  stopId: string
+  stopSequence: number
+  arrivalTime?: string
+  departureTime?: string
 }
 
 export type GtfsFeedMetadata = {
@@ -97,6 +105,7 @@ export type NearbyStop = {
 export type EtaResult = {
   stop: Stop
   estimatedArrival: Date
+  scheduledArrival?: Date
   minutesUntilArrival: number
   remainingDistanceMeters: number
   source: 'mock' | 'gtfs-rt' | 'distance-model'

@@ -1,5 +1,10 @@
 import './style.css'
-import { collectBusEstimationDiagnostics, findNearbyStops, rankBusCandidates } from './domain/busEstimator'
+import {
+  collectBusEstimationDiagnostics,
+  findBusCandidateByTripId,
+  findNearbyStops,
+  rankBusCandidates,
+} from './domain/busEstimator'
 import { calculateEta, estimateTripProgress } from './domain/eta'
 import {
   getCurrentPosition,
@@ -137,11 +142,15 @@ async function bootstrap() {
       const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
       const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
 
-      selectedCandidate = selectedTripId
-        ? candidates.find((candidate) => candidate.trip.id === selectedTripId)
-        : undefined
+      if (selectedTripId) {
+        selectedCandidate =
+          findBusCandidateByTripId(selectedTripId, position, vehicles, staticData.trips, staticData.routes) ??
+          selectedCandidate
+      } else {
+        selectedCandidate = undefined
+      }
 
-      const activeCandidate = selectedCandidate ?? estimatedCandidate
+      const activeCandidate = selectedTripId ? selectedCandidate : estimatedCandidate
       const candidateStops = buildCandidateStops(activeCandidate)
       const tripProgress = activeCandidate ? estimateTripProgress(activeCandidate, staticData.stops) : undefined
       const destinationStops = buildDestinationStops(candidateStops, tripProgress?.nextStopIndex)

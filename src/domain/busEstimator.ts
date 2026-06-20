@@ -35,7 +35,7 @@ function calculateCandidateScore(distance: number, accuracyMeters: number, times
   return clamp(distanceScore * 0.8 + freshnessScore * 0.2 - accuracyPenalty, 0.1, 0.99)
 }
 
-export function rankBusCandidates(
+function buildBusCandidates(
   position: Coordinates,
   vehicles: VehiclePosition[],
   trips: Trip[],
@@ -74,7 +74,25 @@ export function rankBusCandidates(
       if (b.score !== a.score) return b.score - a.score
       return b.vehicle.timestamp.getTime() - a.vehicle.timestamp.getTime()
     })
-    .slice(0, MAX_CANDIDATES)
+}
+
+export function rankBusCandidates(
+  position: Coordinates,
+  vehicles: VehiclePosition[],
+  trips: Trip[],
+  routes: Route[],
+): BusCandidate[] {
+  return buildBusCandidates(position, vehicles, trips, routes).slice(0, MAX_CANDIDATES)
+}
+
+export function findBusCandidateByTripId(
+  tripId: string,
+  position: Coordinates,
+  vehicles: VehiclePosition[],
+  trips: Trip[],
+  routes: Route[],
+): BusCandidate | undefined {
+  return buildBusCandidates(position, vehicles, trips, routes).find((candidate) => candidate.trip.id === tripId)
 }
 
 export function collectBusEstimationDiagnostics(

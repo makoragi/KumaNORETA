@@ -26,18 +26,34 @@ export const mockTrips: Trip[] = [
     routeId: 'route-a',
     headsign: '水前寺公園前 行き',
     stopIds: mockStops.map((stop) => stop.id),
+    stopTimes: [
+      { stopId: mockStops[0].id, stopSequence: 1, arrivalTime: '08:00:00', departureTime: '08:00:00' },
+      { stopId: mockStops[1].id, stopSequence: 2, arrivalTime: '08:08:00', departureTime: '08:09:00' },
+      { stopId: mockStops[2].id, stopSequence: 3, arrivalTime: '08:16:00', departureTime: '08:17:00' },
+      { stopId: mockStops[3].id, stopSequence: 4, arrivalTime: '08:24:00', departureTime: '08:24:00' },
+    ],
   },
   {
     id: 'trip-b-daytime',
     routeId: 'route-b',
     headsign: '健軍町 行き',
     stopIds: [mockStops[1].id, mockStops[2].id, mockStops[3].id],
+    stopTimes: [
+      { stopId: mockStops[1].id, stopSequence: 1, arrivalTime: '12:10:00', departureTime: '12:10:00' },
+      { stopId: mockStops[2].id, stopSequence: 2, arrivalTime: '12:18:00', departureTime: '12:19:00' },
+      { stopId: mockStops[3].id, stopSequence: 3, arrivalTime: '12:27:00', departureTime: '12:27:00' },
+    ],
   },
   {
     id: 'trip-c-daytime',
     routeId: 'route-c',
     headsign: '県庁前 行き',
     stopIds: [mockStops[0].id, mockStops[1].id, mockStops[2].id],
+    stopTimes: [
+      { stopId: mockStops[0].id, stopSequence: 1, arrivalTime: '15:20:00', departureTime: '15:20:00' },
+      { stopId: mockStops[1].id, stopSequence: 2, arrivalTime: '15:29:00', departureTime: '15:30:00' },
+      { stopId: mockStops[2].id, stopSequence: 3, arrivalTime: '15:38:00', departureTime: '15:38:00' },
+    ],
   },
 ]
 
