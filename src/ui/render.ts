@@ -364,7 +364,6 @@ export function renderApp(params: {
               <p class="panel-label">現在のバス</p>
               <h2>乗車中の候補</h2>
             </div>
-            ${activeCandidate ? `<p class="mode-pill ${selectedTripId ? 'mode-pill-selected' : ''}">${renderSelectionMode(selectedTripId)}</p>` : ''}
           </div>
 
           ${
@@ -380,12 +379,21 @@ export function renderApp(params: {
                     <span class="delay-badge ${activeDelayPresentation.badgeClass}">${activeDelayPresentation.badgeText}</span>
                     <span>${activeDelayPresentation.detailText}</span>
                   </p>
-                  <p class="segment-note">現在位置: ${renderCurrentSegment(tripProgress)}</p>
-                  <div class="info-pair-grid">
-                    <div class="info-pair"><span>距離</span><strong>約${Math.round(activeCandidate.distanceMeters)}m</strong></div>
-                    <div class="info-pair"><span>信頼度</span><strong>${Math.round(activeCandidate.confidence * 100)}%</strong></div>
+                  <div class="bus-focus-facts">
+                    <div class="info-pair info-pair-wide">
+                      <span>現在位置</span>
+                      <strong>${renderCurrentSegment(tripProgress)}</strong>
+                    </div>
+                    <div class="info-pair">
+                      <span>距離</span>
+                      <strong>約${Math.round(activeCandidate.distanceMeters)}m</strong>
+                    </div>
+                    <div class="info-pair">
+                      <span>信頼度</span>
+                      <strong>${Math.round(activeCandidate.confidence * 100)}%</strong>
+                    </div>
                   </div>
-                  <p class="muted">${activeCandidate.reason}</p>
+                  <p class="bus-focus-note">${activeCandidate.reason}</p>
                   ${
                     selectedTripId
                       ? `<button class="ghost-button" data-trip-id="${selectedTripId}" type="button">バス選択を解除</button>`
