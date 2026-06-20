@@ -379,10 +379,17 @@ h2 {
   margin-top: 0;
 }
 
-.bus-focus-summary {
+.bus-focus-panel > summary.bus-focus-summary {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  align-items: start;
+  justify-content: stretch;
+}
+
+.bus-focus-panel > summary.bus-focus-summary > * {
+  min-width: 0;
 }
 
 .bus-focus-summary-main {
@@ -398,6 +405,7 @@ h2 {
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .bus-focus-summary-meta {
@@ -425,7 +433,9 @@ h2 {
 }
 
 .bus-focus-summary-meta strong {
+  display: block;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .bus-focus-body {
@@ -965,7 +975,7 @@ select optgroup {
     margin-bottom: 14px;
   }
 
-  .bus-focus-summary {
+  .bus-focus-panel > summary.bus-focus-summary {
     gap: 10px;
   }
 
