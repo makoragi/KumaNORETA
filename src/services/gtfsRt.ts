@@ -323,14 +323,14 @@ function parseTripUpdateMessage(reader: ProtoReader) {
         break
       case 2:
         if (wireType === 2) {
-          parsed.vehicleId = parseVehicleDescriptor(new ProtoReader(reader.readLengthDelimited()))
+          parsed.stopTimeDelays.push(parseStopTimeUpdate(new ProtoReader(reader.readLengthDelimited())))
           break
         }
         reader.skip(wireType)
         break
       case 3:
         if (wireType === 2) {
-          parsed.stopTimeDelays.push(parseStopTimeUpdate(new ProtoReader(reader.readLengthDelimited())))
+          parsed.vehicleId = parseVehicleDescriptor(new ProtoReader(reader.readLengthDelimited()))
           break
         }
         reader.skip(wireType)
