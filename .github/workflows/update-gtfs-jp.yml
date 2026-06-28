@@ -1,0 +1,71 @@
+name: Update GTFS-JP
+
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      dataset_id:
+        description: Dataset to refresh (`toshibus`, `sankobus`, `kumabus`, `dentetsu`, `all`)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-gtfs-jp
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      DATASET_ID: ${{ inputs.dataset_id || vars.VITE_TRANSIT_DATASET || 'toshibus' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.13.1
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Sync GTFS-JP data
+        shell: pwsh
+        run: |
+          $datasetId = $env:DATASET_ID
+          if ([string]::IsNullOrWhiteSpace($datasetId)) {
+            $datasetId = 'toshibus'
+          }
+
+          ./scripts/sync-gtfs-jp.ps1 -DatasetId $datasetId
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: refresh GTFS-JP data (${{ env.DATASET_ID }})"
+          title: "chore: refresh GTFS-JP data (${{ env.DATASET_ID }})"
+          body: |
+            Automated GTFS-JP refresh via GitHub Actions.
+
+            - dataset: `${{ env.DATASET_ID }}`
+            - source: `scripts/sync-gtfs-jp.ps1`
+          branch: "codex/update-gtfs-jp-${{ env.DATASET_ID }}"
+          delete-branch: true
+          labels: |
+            automated
+            data-update
+          add-paths: |
+            data/gtfs-jp/**
+            public/gtfs/**

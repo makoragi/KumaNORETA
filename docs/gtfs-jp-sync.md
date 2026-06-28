@@ -14,13 +14,13 @@
 - Generating a minimized web artifact decouples runtime loading from GTFS CSV parsing.
 - The same sync path can run locally and in GitHub Actions without changing the application code.
 
-## Planned GitHub Actions flow
+## GitHub Actions flow
 
 1. Run on `schedule` and `workflow_dispatch`.
-2. Execute `pnpm gtfs:sync`.
+2. Execute `scripts/sync-gtfs-jp.ps1` with the requested dataset id.
 3. Detect changes in `data/gtfs-jp/toshibus/` and `public/gtfs/toshibus-static.json`.
 4. Open or update a PR with the refreshed timetable data.
-5. Let the existing Pages deploy workflow publish the updated artifact after merge.
+5. Let the existing Pages deploy workflow publish the committed artifact after merge.
 
 ## Follow-up items
 

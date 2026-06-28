@@ -29,16 +29,6 @@ jobs:
           cache: pnpm
       - uses: actions/configure-pages@v5
       - run: pnpm install --frozen-lockfile
-      - name: Generate static GTFS artifacts
-        shell: pwsh
-        env:
-          VITE_TRANSIT_DATASET: ${{ vars.VITE_TRANSIT_DATASET || 'toshibus' }}
-        run: |
-          if ($env:VITE_TRANSIT_DATASET -eq 'all') {
-            ./scripts/sync-gtfs-jp.ps1 -DatasetId all
-          } else {
-            ./scripts/sync-gtfs-jp.ps1 -DatasetId toshibus
-          }
       - run: pnpm build
         env:
           VITE_TRANSIT_DATASET: ${{ vars.VITE_TRANSIT_DATASET || 'toshibus' }}
