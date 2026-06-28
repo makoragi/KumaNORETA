@@ -27,6 +27,25 @@ export type FatalErrorDetails = {
 const formatTime = (date: Date) =>
   new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 
+const MAP_NEARBY_RADIUS_METERS = 1_200
+const MAP_DEFAULT_ZOOM = 15
+const MAP_MAX_AUTO_ZOOM = 16
+const KUMAMOTO_PREFECTURE_BOUNDS: [[number, number], [number, number]] = [
+  [32.08, 129.84],
+  [33.37, 131.32],
+]
+const LEAFLET_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+const LEAFLET_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+
+let activeCandidateMap: {
+  center?: [number, number]
+  container?: HTMLElement
+  hasUserAdjustedView?: boolean
+  map?: LeafletMapInstance
+  zoom?: number
+} = {}
+
 function renderPositionSource(source: PositionSource): string {
   switch (source) {
     case 'browser':
@@ -202,6 +221,188 @@ function renderCandidateCard(params: {
   `
 }
 
+function destroyCandidateMap(): void {
+  if (activeCandidateMap.map) {
+    const center = activeCandidateMap.map.getCenter()
+    activeCandidateMap.center = [center.lat, center.lng]
+    activeCandidateMap.zoom = activeCandidateMap.map.getZoom()
+  }
+  try {
+    activeCandidateMap.map?.remove()
+  } catch {
+    // Ignore teardown races when the surrounding DOM has already been replaced.
+  }
+  activeCandidateMap.map = undefined
+  activeCandidateMap.container = undefined
+}
+
+function buildNearbyMapCandidates(candidates: BusCandidate[]): BusCandidate[] {
+  return candidates.filter((candidate) => candidate.distanceMeters <= MAP_NEARBY_RADIUS_METERS)
+}
+
+function renderCandidateMap(
+  candidates: BusCandidate[],
+): string {
+  const nearbyCandidates = buildNearbyMapCandidates(candidates)
+
+  return `
+    <section class="candidate-map-panel" aria-label="現在地の近くの候補バス地図">
+      <div class="candidate-map-header">
+        <div>
+          <p class="panel-label">Map</p>
+          <h3>現在地まわりの候補バス</h3>
+        </div>
+        <p class="candidate-map-summary">OSMベース。現在地から約${Math.round(MAP_NEARBY_RADIUS_METERS)}m以内だけ表示</p>
+      </div>
+      <div id="candidate-map" class="candidate-map" aria-label="現在地と近くの候補バスの位置"></div>
+      <div class="candidate-map-legend">
+        <span><i class="candidate-map-legend-dot candidate-map-legend-dot-current"></i>現在地</span>
+        <span><i class="candidate-map-legend-dot"></i>候補バス</span>
+      </div>
+      <p class="muted candidate-map-note">
+        地図はスクロールとズームができます。地図に出すのは近くの候補だけで、マーカーを押すとそのバスを選択できます。
+      </p>
+      ${nearbyCandidates.length === 0 ? '<p class="muted">地図に出せる近距離の候補バスはまだありません。</p>' : ''}
+    </section>
+  `
+}
+
+function initializeCandidateMap(params: {
+  root: HTMLElement
+  position: Coordinates
+  candidates: BusCandidate[]
+  selectedTripId?: string
+  estimatedTripId?: string
+  onSelectCandidate: (tripId: string) => void
+}): void {
+  const { root, position, candidates, selectedTripId, estimatedTripId, onSelectCandidate } = params
+  const container = root.querySelector<HTMLElement>('#candidate-map')
+
+  if (!container) {
+    destroyCandidateMap()
+    return
+  }
+
+  const leaflet = window.L
+  if (!leaflet) {
+    destroyCandidateMap()
+    container.innerHTML = '<p class="candidate-map-fallback">地図ライブラリを読み込めなかったため、いまは一覧から選択してください。</p>'
+    return
+  }
+
+  destroyCandidateMap()
+
+  const map = leaflet.map(container, {
+    maxBounds: KUMAMOTO_PREFECTURE_BOUNDS,
+    maxBoundsViscosity: 1,
+    minZoom: 9,
+    scrollWheelZoom: true,
+    zoomControl: true,
+  })
+
+  const previousCenter = activeCandidateMap.center
+  const previousZoom = activeCandidateMap.zoom
+  const hasUserAdjustedView = activeCandidateMap.hasUserAdjustedView ?? false
+
+  activeCandidateMap = {
+    center: previousCenter,
+    container,
+    hasUserAdjustedView,
+    map,
+    zoom: previousZoom,
+  }
+
+  const prefectureBounds = leaflet.latLngBounds(KUMAMOTO_PREFECTURE_BOUNDS)
+  map.setMaxBounds(prefectureBounds)
+
+  leaflet
+    .tileLayer(LEAFLET_TILE_URL, {
+      attribution: LEAFLET_ATTRIBUTION,
+      subdomains: 'abcd',
+      maxZoom: 19,
+    })
+    .addTo(map)
+
+  leaflet
+    .circle([position.latitude, position.longitude], {
+      radius: position.accuracyMeters,
+      color: '#2563eb',
+      weight: 2,
+      fillColor: '#60a5fa',
+      fillOpacity: 0.14,
+    })
+    .addTo(map)
+
+  leaflet
+    .marker([position.latitude, position.longitude], {
+      icon: leaflet.divIcon({
+        className: 'candidate-map-current-marker',
+        html: '<span></span>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      }),
+    })
+    .addTo(map)
+
+  const nearbyCandidates = buildNearbyMapCandidates(candidates)
+  const boundsPoints: [number, number][] = [[position.latitude, position.longitude]]
+
+  nearbyCandidates.forEach((candidate) => {
+    const isSelected = candidate.trip.id === selectedTripId
+    const isEstimated = candidate.trip.id === estimatedTripId
+
+    boundsPoints.push([candidate.vehicle.latitude, candidate.vehicle.longitude])
+
+    const marker = leaflet
+      .marker([candidate.vehicle.latitude, candidate.vehicle.longitude], {
+        title: `${candidate.route.shortName} ${candidate.route.longName}`,
+        icon: leaflet.divIcon({
+          className: `candidate-map-leaflet-marker ${isSelected ? 'candidate-map-leaflet-marker-selected' : ''}`,
+          html: `
+            <button class="candidate-map-marker-button" type="button" style="--marker-color:${candidate.route.color};">
+              <span class="candidate-map-marker-pin" aria-hidden="true"></span>
+              <span class="candidate-map-marker-label">${candidate.route.shortName}</span>
+              ${isEstimated ? '<span class="candidate-map-marker-badge">推定</span>' : ''}
+            </button>
+          `,
+          iconSize: [120, 40],
+          iconAnchor: [24, 34],
+        }),
+      })
+      .addTo(map)
+
+    marker.on('click', () => {
+      onSelectCandidate(candidate.trip.id)
+    })
+  })
+
+  if (hasUserAdjustedView && previousCenter && previousZoom !== undefined) {
+    map.setView(previousCenter, previousZoom)
+  } else if (boundsPoints.length > 1) {
+    map.fitBounds(leaflet.latLngBounds(boundsPoints).pad(0.35), { maxZoom: MAP_MAX_AUTO_ZOOM })
+  } else {
+    map.setView([position.latitude, position.longitude], MAP_DEFAULT_ZOOM)
+  }
+
+  map.on('moveend', () => {
+    const center = map.getCenter()
+    activeCandidateMap.center = [center.lat, center.lng]
+    activeCandidateMap.zoom = map.getZoom()
+    activeCandidateMap.hasUserAdjustedView = true
+  })
+
+  map.on('zoomend', () => {
+    const center = map.getCenter()
+    activeCandidateMap.center = [center.lat, center.lng]
+    activeCandidateMap.zoom = map.getZoom()
+    activeCandidateMap.hasUserAdjustedView = true
+  })
+
+  requestAnimationFrame(() => {
+    map.invalidateSize()
+  })
+}
+
 function renderShell(root: HTMLElement, copy: string, body: string): void {
   root.innerHTML = `
     <main class="app-shell">
@@ -217,6 +418,8 @@ function renderShell(root: HTMLElement, copy: string, body: string): void {
 }
 
 export function renderLoadingApp(root: HTMLElement): void {
+  destroyCandidateMap()
+
   renderShell(
     root,
     'いま乗っとるバス、いつ着くと？',
@@ -289,6 +492,7 @@ export function renderApp(params: {
   activeTripUpdate?: TripUpdate
   estimatedCandidate?: BusCandidate
   candidates: BusCandidate[]
+  mapCandidates: BusCandidate[]
   diagnostics: BusEstimationDiagnostics
   eta?: EtaResult
   nearbyStops: NearbyStop[]
@@ -314,6 +518,7 @@ export function renderApp(params: {
     activeTripUpdate,
     estimatedCandidate,
     candidates,
+    mapCandidates,
     diagnostics,
     eta,
     nearbyStops,
@@ -371,6 +576,16 @@ export function renderApp(params: {
           <strong>${busDetectionState}</strong>
           <span>候補 ${diagnostics.candidateCount}件</span>
         </div>
+      </section>
+
+      <section class="quick-refresh-bar">
+        <button class="gps-button quick-refresh-button" type="button" id="refresh-data-inline">
+          <span class="gps-button-icon" aria-hidden="true"></span>
+          <span>現在地とバス候補を更新</span>
+        </button>
+        <p class="muted quick-refresh-copy">
+          ブラウザを再読み込みせんでも、ここから GPS とバス候補をまとめて更新できます。
+        </p>
       </section>
 
       <section class="priority-grid">
@@ -495,6 +710,7 @@ export function renderApp(params: {
               <p class="muted">自動推定の候補です。違う場合は手動で選択してください。</p>
             </div>
           </div>
+          ${renderCandidateMap(mapCandidates)}
           ${
             candidates.length > 0
               ? `<ol class="candidate-list">
@@ -587,8 +803,41 @@ export function renderApp(params: {
           ${diagnostics.note ? `<p class="diagnostics-note">${diagnostics.note}</p>` : ''}
         </div>
       </details>
+
+      <section class="app-action-bar" aria-label="アプリ操作">
+        <div class="app-action-brand">
+          <p class="app-action-kicker"><span>KumaNOR</span><span class="app-action-kicker-accent">ETA</span></p>
+          <p class="app-action-copy">現在地とバス候補をここから更新</p>
+        </div>
+        <button class="gps-button app-action-button" type="button" id="refresh-data">
+          <span class="gps-button-icon" aria-hidden="true"></span>
+          <span>更新</span>
+        </button>
+      </section>
     `,
   )
+
+  initializeCandidateMap({
+    root,
+    position,
+    candidates: mapCandidates,
+    selectedTripId,
+    estimatedTripId: estimatedCandidate?.trip.id,
+    onSelectCandidate,
+  })
+
+  const footerRefreshButton = root.querySelector<HTMLButtonElement>('#refresh-data')
+  if (footerRefreshButton && footerRefreshButton.parentElement?.classList.contains('app-action-bar')) {
+    const controls = document.createElement('div')
+    controls.className = 'app-action-controls'
+
+    const timestamp = document.createElement('p')
+    timestamp.className = 'app-action-timestamp'
+    timestamp.textContent = `最終更新 ${formatTime(diagnostics.vehicleFetchedAt)}`
+
+    footerRefreshButton.replaceWith(controls)
+    controls.append(timestamp, footerRefreshButton)
+  }
 
   root.querySelectorAll<HTMLButtonElement>('[data-trip-id]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -600,6 +849,14 @@ export function renderApp(params: {
   })
 
   root.querySelector<HTMLButtonElement>('#refresh-location')?.addEventListener('click', () => {
+    void onRefreshLocation()
+  })
+
+  root.querySelector<HTMLButtonElement>('#refresh-data')?.addEventListener('click', () => {
+    void onRefreshLocation()
+  })
+
+  root.querySelector<HTMLButtonElement>('#refresh-data-inline')?.addEventListener('click', () => {
     void onRefreshLocation()
   })
 

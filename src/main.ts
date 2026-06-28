@@ -5,6 +5,7 @@ import {
   findBusCandidateByTripId,
   findNearbyStops,
   rankBusCandidates,
+  rankNearbyBusCandidates,
 } from './domain/busEstimator'
 import { calculateEta, estimateTripProgress } from './domain/eta'
 import {
@@ -20,10 +21,10 @@ import {
   fetchVehiclePositions,
   type GtfsRtCollectionFetchStatus,
 } from './services/gtfsRt'
-import type { BusCandidate, BusEstimationDiagnostics, Stop, TripUpdate } from './types'
+import type { BusCandidate, BusEstimationDiagnostics, Stop, TripUpdate, VehiclePosition } from './types'
 import { renderApp, renderLoadingApp, renderRuntimeError } from './ui/render'
 
-const VEHICLE_REFRESH_INTERVAL_MS = 15_000
+const MAP_NEARBY_RADIUS_METERS = 1_200
 const SELECTED_TRIP_STORAGE_KEY = 'kumanoreta:selectedTripId'
 const SELECTED_DESTINATION_STORAGE_KEY = 'kumanoreta:selectedDestinationStopId'
 
@@ -55,12 +56,12 @@ function normalizeError(error: unknown): { message: string; stack?: string; hint
   if (error instanceof Error) {
     const lower = `${error.name} ${error.message}`.toLowerCase()
     const hint = lower.includes('fetch')
-      ? '通信失敗の可能性があります。ネットワーク、CORS、GTFS-RT 配信先を確認してください。'
+      ? 'ネットワークや CORS、GTFS-RT の取得設定を確認してください。'
       : lower.includes('geolocation') || lower.includes('permission')
-        ? '位置情報の取得に失敗した可能性があります。ブラウザの位置情報権限を確認してください。'
+        ? '位置情報の利用許可を確認してください。'
         : lower.includes('app root')
-          ? '描画先の DOM が見つかっていません。HTML 側の #app を確認してください。'
-          : 'JavaScript 実行時エラーの可能性があります。ブラウザの開発者ツールも確認してください。'
+          ? 'HTML の #app 要素が見つかりません。'
+          : 'ブラウザの開発者ツールに詳細が出ている可能性があります。'
 
     return {
       message: error.message || error.name,
@@ -71,7 +72,7 @@ function normalizeError(error: unknown): { message: string; stack?: string; hint
 
   return {
     message: typeof error === 'string' ? error : JSON.stringify(error),
-    hint: '想定外の値が throw されています。',
+    hint: '原因不明のエラーが発生しました。',
   }
 }
 
@@ -116,6 +117,10 @@ async function bootstrap() {
   let selectedTripId = loadPersistedValue(SELECTED_TRIP_STORAGE_KEY)
   let selectedDestinationStopId = loadPersistedValue(SELECTED_DESTINATION_STORAGE_KEY)
   let selectedCandidate: BusCandidate | undefined
+  let latestVehicles: VehiclePosition[] = []
+  let latestTripUpdates: TripUpdate[] = []
+  let latestTripUpdatesStatus: GtfsRtCollectionFetchStatus = isMockVehicleSource ? 'mock' : 'failed'
+  let latestVehicleFetchedAt = new Date()
 
   const buildCandidateStops = (candidate?: BusCandidate): Stop[] =>
     candidate
@@ -130,6 +135,118 @@ async function bootstrap() {
     return candidateStops.slice(Math.max(0, Math.min(nextStopIndex, candidateStops.length - 1)))
   }
 
+  const renderCurrentState = () => {
+    const tripUpdatesByTripId = buildTripUpdatesByTripId(latestTripUpdates)
+    const position = positionResult.position
+    const nearbyStops = findNearbyStops(position, staticData.stops)
+    const candidates = rankBusCandidates(position, latestVehicles, staticData.trips, staticData.routes, staticData.stops)
+    const mapCandidates = rankNearbyBusCandidates(
+      position,
+      latestVehicles,
+      staticData.trips,
+      staticData.routes,
+      staticData.stops,
+      MAP_NEARBY_RADIUS_METERS,
+    )
+    const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
+    const rawDiagnostics = collectBusEstimationDiagnostics(position, latestVehicles, staticData.trips, staticData.routes)
+
+    if (selectedTripId) {
+      selectedCandidate =
+        findBusCandidateByTripId(
+          selectedTripId,
+          position,
+          latestVehicles,
+          staticData.trips,
+          staticData.routes,
+          staticData.stops,
+        ) ??
+        mapCandidates.find((candidate) => candidate.trip.id === selectedTripId) ??
+        candidates.find((candidate) => candidate.trip.id === selectedTripId) ??
+        selectedCandidate
+    } else {
+      selectedCandidate = undefined
+    }
+
+    const activeCandidate = selectedTripId ? selectedCandidate : estimatedCandidate
+    const candidateStops = buildCandidateStops(activeCandidate)
+    const tripProgress = activeCandidate ? estimateTripProgress(activeCandidate, staticData.stops) : undefined
+    const destinationStops = buildDestinationStops(candidateStops, tripProgress?.nextStopIndex)
+
+    if (!destinationStops.some((stop) => stop.id === selectedDestinationStopId)) {
+      selectedDestinationStopId = destinationStops.at(-1)?.id
+      persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
+    }
+
+    const eta =
+      activeCandidate && selectedDestinationStopId
+        ? calculateEta(activeCandidate, selectedDestinationStopId, staticData.stops, tripProgress)
+        : undefined
+
+    const diagnostics: BusEstimationDiagnostics = {
+      ...rawDiagnostics,
+      candidateCount: candidates.length,
+      positionSource: positionResult.source,
+      vehicleFetchedAt: latestVehicleFetchedAt,
+      vehicleSource: isMockVehicleSource ? 'mock' : 'gtfs-rt',
+      note:
+        !isMockVehicleSource && latestVehicles.length > 0 && rawDiagnostics.matchedVehicles === 0
+          ? 'GTFS-RT の tripId と静的 GTFS の対応が取れない車両が含まれている可能性があります。'
+          : undefined,
+    }
+
+    renderApp({
+      root,
+      position,
+      activeCandidate,
+      activeTripUpdate: activeCandidate ? tripUpdatesByTripId.get(activeCandidate.trip.id) : undefined,
+      candidates,
+      mapCandidates,
+      diagnostics,
+      estimatedCandidate,
+      eta,
+      nearbyStops,
+      destinationStops,
+      locationDebugOptions,
+      onSelectCandidate: (tripId) => {
+        if (selectedTripId === tripId) {
+          selectedTripId = undefined
+          selectedCandidate = undefined
+        } else {
+          selectedTripId = tripId
+          selectedCandidate =
+            mapCandidates.find((candidate) => candidate.trip.id === tripId) ??
+            candidates.find((candidate) => candidate.trip.id === tripId)
+        }
+
+        persistValue(SELECTED_TRIP_STORAGE_KEY, selectedTripId)
+        renderCurrentState()
+      },
+      onSelectDestination: (stopId) => {
+        selectedDestinationStopId = stopId
+        persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
+        renderCurrentState()
+      },
+      onRefreshLocation: async () => {
+        positionResult = await getCurrentPosition(selectedLocationMode)
+        await refreshVehicles()
+      },
+      onSelectLocationMode: async (mode) => {
+        selectedLocationMode = mode
+        persistLocationDebugMode(mode)
+        positionResult = await getCurrentPosition(mode)
+        renderCurrentState()
+      },
+      selectedLocationMode,
+      selectedDestinationStopId,
+      selectedTripId,
+      stops: candidateStops,
+      tripUpdatesFetchStatus: latestTripUpdatesStatus,
+      tripUpdatesByTripId,
+      tripProgress,
+    })
+  }
+
   const refreshVehicles = async () => {
     if (refreshInProgress) return
     refreshInProgress = true
@@ -140,104 +257,12 @@ async function bootstrap() {
         fetchTripUpdatesWithStatus(activeDatasetId),
       ])
 
-      const vehicleFetchedAt = new Date()
-      const tripUpdates = tripUpdatesResult.tripUpdates
-      const tripUpdatesByTripId = buildTripUpdatesByTripId(tripUpdates)
-      const position = positionResult.position
-      const nearbyStops = findNearbyStops(position, staticData.stops)
-      const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes, staticData.stops)
-      const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
-      const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
+      latestVehicles = vehicles
+      latestTripUpdates = tripUpdatesResult.tripUpdates
+      latestTripUpdatesStatus = tripUpdatesResult.status as GtfsRtCollectionFetchStatus
+      latestVehicleFetchedAt = new Date()
 
-      if (selectedTripId) {
-        selectedCandidate =
-          findBusCandidateByTripId(
-            selectedTripId,
-            position,
-            vehicles,
-            staticData.trips,
-            staticData.routes,
-            staticData.stops,
-          ) ??
-          selectedCandidate
-      } else {
-        selectedCandidate = undefined
-      }
-
-      const activeCandidate = selectedTripId ? selectedCandidate : estimatedCandidate
-      const candidateStops = buildCandidateStops(activeCandidate)
-      const tripProgress = activeCandidate ? estimateTripProgress(activeCandidate, staticData.stops) : undefined
-      const destinationStops = buildDestinationStops(candidateStops, tripProgress?.nextStopIndex)
-
-      if (!destinationStops.some((stop) => stop.id === selectedDestinationStopId)) {
-        selectedDestinationStopId = destinationStops.at(-1)?.id
-        persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
-      }
-
-      const eta =
-        activeCandidate && selectedDestinationStopId
-          ? calculateEta(activeCandidate, selectedDestinationStopId, staticData.stops, tripProgress)
-          : undefined
-
-      const diagnostics: BusEstimationDiagnostics = {
-        ...rawDiagnostics,
-        candidateCount: candidates.length,
-        positionSource: positionResult.source,
-        vehicleFetchedAt,
-        vehicleSource: isMockVehicleSource ? 'mock' : 'gtfs-rt',
-        note:
-          !isMockVehicleSource && vehicles.length > 0 && rawDiagnostics.matchedVehicles === 0
-            ? 'GTFS-RT の tripId と静的 GTFS の便データが一致せず、推定精度が下がっている可能性があります。'
-            : undefined,
-      }
-
-      renderApp({
-        root,
-        position,
-        activeCandidate,
-        activeTripUpdate: activeCandidate ? tripUpdatesByTripId.get(activeCandidate.trip.id) : undefined,
-        candidates,
-        diagnostics,
-        estimatedCandidate,
-        eta,
-        nearbyStops,
-        destinationStops,
-        locationDebugOptions,
-        onSelectCandidate: (tripId) => {
-          if (selectedTripId === tripId) {
-            selectedTripId = undefined
-            selectedCandidate = undefined
-          } else {
-            selectedTripId = tripId
-            selectedCandidate = candidates.find((candidate) => candidate.trip.id === tripId)
-          }
-
-          persistValue(SELECTED_TRIP_STORAGE_KEY, selectedTripId)
-          void refreshVehicles()
-        },
-        onSelectDestination: (stopId) => {
-          selectedDestinationStopId = stopId
-          persistValue(SELECTED_DESTINATION_STORAGE_KEY, selectedDestinationStopId)
-          void refreshVehicles()
-        },
-        onRefreshLocation: async () => {
-          positionResult = await getCurrentPosition(selectedLocationMode)
-          await refreshVehicles()
-        },
-        onSelectLocationMode: async (mode) => {
-          selectedLocationMode = mode
-          persistLocationDebugMode(mode)
-          positionResult = await getCurrentPosition(mode)
-          await refreshVehicles()
-        },
-        selectedLocationMode,
-        selectedDestinationStopId,
-        selectedTripId,
-        stops: candidateStops,
-        tripUpdatesFetchStatus: tripUpdatesResult.status as GtfsRtCollectionFetchStatus,
-        tripUpdatesByTripId,
-        tripProgress,
-      })
+      renderCurrentState()
     } catch (error) {
       console.error('Failed during vehicle refresh', error)
       renderErrorState(root, 'vehicle refresh', error)
@@ -247,14 +272,6 @@ async function bootstrap() {
   }
 
   await refreshVehicles()
-
-  if (!isMockVehicleSource) {
-    window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        void refreshVehicles()
-      }
-    }, VEHICLE_REFRESH_INTERVAL_MS)
-  }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

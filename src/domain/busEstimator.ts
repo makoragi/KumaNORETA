@@ -248,6 +248,19 @@ export function rankBusCandidates(
   return buildBusCandidates(position, vehicles, trips, routes, stops).slice(0, MAX_CANDIDATES)
 }
 
+export function rankNearbyBusCandidates(
+  position: Coordinates,
+  vehicles: VehiclePosition[],
+  trips: Trip[],
+  routes: Route[],
+  stops: Stop[],
+  maxDistanceMeters: number,
+): BusCandidate[] {
+  return buildBusCandidates(position, vehicles, trips, routes, stops).filter(
+    (candidate) => candidate.distanceMeters <= maxDistanceMeters,
+  )
+}
+
 export function findBusCandidateByTripId(
   tripId: string,
   position: Coordinates,
