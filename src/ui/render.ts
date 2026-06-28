@@ -1,5 +1,6 @@
 import type { LocationDebugMode, LocationDebugOption, PositionSource } from '../services/gps'
 import type { GtfsRtCollectionFetchStatus } from '../services/gtfsRt'
+import { getTransitOperatorTheme, isTransitOperatorId } from '../config/transit'
 import type {
   BusCandidate,
   BusEstimationDiagnostics,
@@ -37,6 +38,23 @@ const KUMAMOTO_PREFECTURE_BOUNDS: [[number, number], [number, number]] = [
 const LEAFLET_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 const LEAFLET_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+
+function buildOperatorThemeVars(agencyId: string): string {
+  const theme = isTransitOperatorId(agencyId)
+    ? getTransitOperatorTheme(agencyId)
+    : {
+        primary: '#7d2022',
+        deep: '#5b1718',
+        soft: '#f1ddda',
+        onPrimary: '#fff8f4',
+      }
+  return [
+    `--operator-color:${theme.primary}`,
+    `--operator-color-deep:${theme.deep}`,
+    `--operator-color-soft:${theme.soft}`,
+    `--operator-on-color:${theme.onPrimary}`,
+  ].join(';')
+}
 
 let activeCandidateMap: {
   center?: [number, number]
@@ -210,12 +228,13 @@ function renderCandidateCard(params: {
   const isEstimated = candidate.trip.id === estimatedTripId
   const isSelected = candidate.trip.id === selectedTripId
   const delayPresentation = resolveDelayPresentation(tripUpdate, tripUpdatesFetchStatus)
+  const operatorThemeVars = buildOperatorThemeVars(candidate.route.agencyId)
 
   return `
-    <li class="candidate-item ${isSelected ? 'candidate-item-selected' : ''}">
+    <li class="candidate-item ${isSelected ? 'candidate-item-selected' : ''}" style="${operatorThemeVars}">
       <div class="candidate-item-header">
         <div class="candidate-badges">
-          <p class="route" style="--route-color:${candidate.route.color}">${candidate.route.shortName}</p>
+          <p class="route">${candidate.route.shortName}</p>
           ${isEstimated ? '<span class="candidate-badge">自動推定</span>' : ''}
           ${isSelected ? '<span class="candidate-badge candidate-badge-selected">選択中</span>' : ''}
         </div>
@@ -257,6 +276,14 @@ function renderCandidateMap(
   candidates: BusCandidate[],
 ): string {
   const nearbyCandidates = buildNearbyMapCandidates(candidates)
+  const operatorLegend = Array.from(
+    new Map(
+      nearbyCandidates.map((candidate) => [
+        candidate.route.agencyId,
+        { agencyId: candidate.route.agencyId, agencyName: candidate.route.agencyName },
+      ]),
+    ).values(),
+  )
 
   return `
     <section class="candidate-map-panel" aria-label="現在地の近くの候補バス地図">
@@ -272,6 +299,20 @@ function renderCandidateMap(
         <span><i class="candidate-map-legend-dot candidate-map-legend-dot-current"></i>現在地</span>
         <span><i class="candidate-map-legend-dot"></i>候補バス</span>
       </div>
+      ${
+        operatorLegend.length > 0
+          ? `<div class="operator-legend" aria-label="事業者カラー">
+              ${operatorLegend
+                .map(
+                  (operator) => `
+                    <span class="operator-legend-chip" style="${buildOperatorThemeVars(operator.agencyId)}">
+                      <i class="operator-legend-swatch"></i>${operator.agencyName}
+                    </span>`,
+                )
+                .join('')}
+            </div>`
+          : ''
+      }
       <p class="muted candidate-map-note">
         地図はスクロールとズームができます。地図に出すのは近くの候補だけで、マーカーを押すとそのバスを選択できます。
       </p>
@@ -372,7 +413,7 @@ function initializeCandidateMap(params: {
         icon: leaflet.divIcon({
           className: `candidate-map-leaflet-marker ${isSelected ? 'candidate-map-leaflet-marker-selected' : ''}`,
           html: `
-            <button class="candidate-map-marker-button" type="button" style="--marker-color:${candidate.route.color};">
+            <button class="candidate-map-marker-button" type="button" style="${buildOperatorThemeVars(candidate.route.agencyId)}">
               <span class="candidate-map-marker-pin" aria-hidden="true"></span>
               <span class="candidate-map-marker-label">${candidate.route.shortName}</span>
               ${isEstimated ? '<span class="candidate-map-marker-badge">推定</span>' : ''}
@@ -569,6 +610,7 @@ export function renderApp(params: {
   const locationRecoveryHint = renderLocationRecoveryHint(diagnostics.positionSource)
   const busDetectionState = activeCandidate ? '検出中' : '探索中'
   const routeTitle = activeCandidate?.route.longName ?? 'まだ候補バスを特定できていません'
+  const activeOperatorThemeVars = activeCandidate ? buildOperatorThemeVars(activeCandidate.route.agencyId) : ''
 
   renderShell(
     root,
@@ -606,10 +648,10 @@ export function renderApp(params: {
         ${
           activeCandidate
             ? `
-              <details class="card stack-card collapsible-card bus-focus-panel" data-panel-id="bus-focus" ${renderDetailsOpenAttribute(detailsOpenStates, 'bus-focus', true)}>
+              <details class="card stack-card collapsible-card bus-focus-panel" data-panel-id="bus-focus" style="${activeOperatorThemeVars}" ${renderDetailsOpenAttribute(detailsOpenStates, 'bus-focus', true)}>
                 <summary class="bus-focus-summary">
                   <div class="bus-focus-summary-main">
-                    <p class="route" style="--route-color:${activeCandidate.route.color}">${activeCandidate.route.shortName}</p>
+                    <p class="route">${activeCandidate.route.shortName}</p>
                   </div>
                   <p class="bus-focus-summary-title">${routeTitle}</p>
                   <div class="bus-focus-summary-meta">
@@ -821,13 +863,12 @@ export function renderApp(params: {
       </details>
 
       <section class="app-action-bar" aria-label="アプリ操作">
-        <div class="app-action-brand">
-          <p class="app-action-kicker"><span>KumaNOR</span><span class="app-action-kicker-accent">ETA</span></p>
-          <p class="app-action-copy">現在地とバス候補をここから更新</p>
-        </div>
         <button class="gps-button app-action-button" type="button" id="refresh-data">
           <span class="gps-button-icon" aria-hidden="true"></span>
-          <span>更新</span>
+          <span class="app-action-button-copy">
+            <strong>更新</strong>
+            <small>最終更新 ${formatTime(diagnostics.vehicleFetchedAt)}</small>
+          </span>
         </button>
       </section>
     `,
@@ -841,19 +882,6 @@ export function renderApp(params: {
     estimatedTripId: estimatedCandidate?.trip.id,
     onSelectCandidate,
   })
-
-  const footerRefreshButton = root.querySelector<HTMLButtonElement>('#refresh-data')
-  if (footerRefreshButton && footerRefreshButton.parentElement?.classList.contains('app-action-bar')) {
-    const controls = document.createElement('div')
-    controls.className = 'app-action-controls'
-
-    const timestamp = document.createElement('p')
-    timestamp.className = 'app-action-timestamp'
-    timestamp.textContent = `最終更新 ${formatTime(diagnostics.vehicleFetchedAt)}`
-
-    footerRefreshButton.replaceWith(controls)
-    controls.append(timestamp, footerRefreshButton)
-  }
 
   root.querySelectorAll<HTMLButtonElement>('[data-trip-id]').forEach((button) => {
     button.addEventListener('click', () => {

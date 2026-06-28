@@ -16,6 +16,12 @@
   --kumamoto-red: #be2f2f;
   --kumamoto-red-deep: #8f1f1f;
   --kumamoto-red-soft: #f6d9d3;
+  --kumamoto-blue: #1f5fbf;
+  --kumamoto-blue-soft: #dce8fb;
+  --kumamoto-yellow: #f2c230;
+  --kumamoto-yellow-soft: #fff0b8;
+  --kumamoto-green: #2f8f4e;
+  --kumamoto-green-soft: #dbf0e0;
   --kumamoto-ink: #1e1716;
   --kumamoto-gold: #b88947;
   --ok: #166534;
@@ -46,7 +52,8 @@
 html {
   background:
     radial-gradient(circle at top left, rgb(190 47 47 / 10%), transparent 26%),
-    radial-gradient(circle at top right, rgb(184 137 71 / 12%), transparent 24%),
+    radial-gradient(circle at top right, rgb(31 95 191 / 10%), transparent 24%),
+    radial-gradient(circle at 50% 120%, rgb(47 143 78 / 10%), transparent 24%),
     linear-gradient(180deg, var(--bg) 0%, #f9f1e9 100%);
 }
 
@@ -57,7 +64,8 @@ body {
   color: var(--text);
   background:
     radial-gradient(circle at 10% 0%, rgb(190 47 47 / 9%), transparent 24%),
-    radial-gradient(circle at 100% 10%, rgb(184 137 71 / 8%), transparent 20%),
+    radial-gradient(circle at 100% 10%, rgb(31 95 191 / 8%), transparent 20%),
+    radial-gradient(circle at 50% 100%, rgb(47 143 78 / 8%), transparent 18%),
     linear-gradient(180deg, #fefbf8 0%, #f5ece3 100%);
 }
 
@@ -197,10 +205,9 @@ h1 {
   bottom: 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
   width: min(1120px, calc(100% - 32px));
-  padding: 14px 16px;
+  padding: 10px 12px;
   border: 1px solid rgb(255 255 255 / 34%);
   border-radius: 24px;
   color: #fff8f4;
@@ -212,53 +219,34 @@ h1 {
   transform: translateX(-50%);
 }
 
-.app-action-brand {
-  min-width: 0;
-}
-
-.app-action-kicker,
-.app-action-copy {
-  margin: 0;
-}
-
-.app-action-kicker {
-  font-family: var(--font-brand);
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.app-action-kicker span + span {
-  margin-left: 0;
-}
-
-.app-action-kicker-accent {
-  color: var(--kumamoto-red);
-}
-
-.app-action-copy {
-  margin-top: 2px;
-  color: rgb(255 240 232 / 74%);
-  font-size: 0.84rem;
-}
-
-.app-action-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.app-action-timestamp {
-  margin: 0;
-  color: rgb(255 240 232 / 74%);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
 .app-action-button {
-  flex: none;
-  min-width: 132px;
+  width: 100%;
+  min-height: 48px;
+  padding-inline: 18px;
+}
+
+.app-action-button-copy {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  text-align: left;
+}
+
+.app-action-button-copy strong,
+.app-action-button-copy small {
+  display: block;
+}
+
+.app-action-button-copy strong {
+  font-size: 0.94rem;
+  line-height: 1.1;
+}
+
+.app-action-button-copy small {
+  color: rgb(255 240 232 / 78%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
 }
 
 .status-chip,
@@ -313,6 +301,10 @@ h1 {
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
   gap: 24px;
   margin-top: 24px;
+}
+
+.eta-card {
+  order: -1;
 }
 
 .card {
@@ -400,10 +392,11 @@ h2 {
   margin: 0;
   padding: 7px 13px;
   border-radius: 999px;
-  color: #fffdfa;
-  background: var(--route-color, var(--kumamoto-red));
+  color: var(--operator-on-color, #fffdfa);
+  background: linear-gradient(135deg, var(--operator-color-deep, var(--kumamoto-red-deep)), var(--operator-color, var(--kumamoto-red)));
   font-size: 0.92rem;
   font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%);
 }
 
 .candidate-title {
@@ -505,7 +498,8 @@ h2 {
   margin: 0;
   padding: 10px 12px;
   border-radius: 16px;
-  background: rgb(255 252 249 / 72%);
+  border: 1px solid color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 16%, white);
+  background: color-mix(in srgb, var(--operator-color-soft, #fff4ec) 62%, white);
 }
 
 .bus-focus-summary-meta span {
@@ -543,7 +537,7 @@ h2 {
 }
 
 .selection-note {
-  color: var(--kumamoto-red);
+  color: var(--operator-color-deep, var(--kumamoto-red));
 }
 
 .location-panel {
@@ -558,7 +552,7 @@ h2 {
 
 .location-panel-label {
   margin: 0 0 6px;
-  color: var(--kumamoto-red);
+  color: var(--operator-color, var(--kumamoto-red));
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -823,8 +817,8 @@ select optgroup {
 }
 
 .candidate-badge-selected {
-  color: #fff9f4;
-  background: var(--kumamoto-red);
+  color: var(--operator-on-color, #fff9f4);
+  background: var(--operator-color, var(--kumamoto-red));
 }
 
 .status-badge {
@@ -940,9 +934,9 @@ select optgroup {
   align-items: center;
   gap: 6px;
   padding: 0 10px 0 0;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 20%, white);
   border-radius: 999px;
-  background: rgb(255 255 255 / 92%);
+  background: color-mix(in srgb, var(--operator-color-soft, #ffffff) 38%, white);
   box-shadow: 0 10px 24px rgb(32 23 18 / 18%);
   cursor: pointer;
 }
@@ -953,7 +947,7 @@ select optgroup {
 
 .candidate-map-leaflet-marker-selected .candidate-map-marker-button {
   box-shadow:
-    0 0 0 2px rgb(190 47 47 / 22%),
+    0 0 0 2px color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 22%, white),
     0 14px 28px rgb(32 23 18 / 20%);
 }
 
@@ -965,7 +959,7 @@ select optgroup {
   margin: 8px 0 8px 8px;
   border: 2px solid #fff;
   border-radius: 999px;
-  background: var(--marker-color, var(--kumamoto-red));
+  background: var(--operator-color, var(--kumamoto-red));
   box-shadow: 0 4px 12px rgb(15 23 42 / 22%);
 }
 
@@ -996,8 +990,8 @@ select optgroup {
 .candidate-map-marker-badge {
   padding: 3px 7px;
   border-radius: 999px;
-  color: var(--kumamoto-red);
-  background: rgb(190 47 47 / 10%);
+  color: var(--operator-color-deep, var(--kumamoto-red));
+  background: color-mix(in srgb, var(--operator-color-soft, #ffffff) 76%, white);
   font-size: 0.7rem;
   font-weight: 800;
 }
@@ -1014,6 +1008,33 @@ select optgroup {
   font-size: 0.74rem;
   font-weight: 700;
   backdrop-filter: blur(8px);
+}
+
+.operator-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.operator-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 18%, white);
+  border-radius: 999px;
+  color: var(--operator-color-deep, var(--kumamoto-red));
+  background: color-mix(in srgb, var(--operator-color-soft, #ffffff) 72%, white);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.operator-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--operator-color, var(--kumamoto-red));
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 72%);
 }
 
 .candidate-map-legend span {
@@ -1041,10 +1062,10 @@ select optgroup {
 }
 
 .candidate-item-selected {
-  border-color: rgb(190 47 47 / 42%);
+  border-color: color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 42%, white);
   box-shadow:
-    inset 0 0 0 1px rgb(190 47 47 / 22%),
-    0 16px 36px rgb(190 47 47 / 10%);
+    inset 0 0 0 1px color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 22%, white),
+    0 16px 36px color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 10%, transparent);
 }
 
 .candidate-rank {
@@ -1061,16 +1082,16 @@ select optgroup {
 .candidate-select-button {
   margin-top: 14px;
   border: 0;
-  color: #fff9f4;
-  background: linear-gradient(135deg, #7d2022, var(--kumamoto-red));
+  color: var(--operator-on-color, #fff9f4);
+  background: linear-gradient(135deg, var(--operator-color-deep, #7d2022), var(--operator-color, var(--kumamoto-red)));
 }
 
 .ghost-button {
   width: fit-content;
   margin-top: 4px;
-  border: 1px solid rgb(190 47 47 / 22%);
-  color: var(--kumamoto-red);
-  background: #fff8f5;
+  border: 1px solid color-mix(in srgb, var(--operator-color, var(--kumamoto-red)) 22%, white);
+  color: var(--operator-color-deep, var(--kumamoto-red));
+  background: color-mix(in srgb, var(--operator-color-soft, #fff8f5) 58%, white);
 }
 
 .empty-panel {
@@ -1167,8 +1188,8 @@ select optgroup {
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  color: var(--kumamoto-red);
-  background: rgb(190 47 47 / 10%);
+  color: var(--operator-color, var(--kumamoto-red));
+  background: color-mix(in srgb, var(--operator-color-soft, #ffffff) 68%, white);
   font-size: 1.2rem;
   line-height: 30px;
   text-align: center;
@@ -1404,21 +1425,13 @@ select optgroup {
   .app-action-bar {
     width: calc(100% - 20px);
     bottom: 10px;
-    padding: 12px 14px;
+    padding: 8px 10px;
     border-radius: 20px;
   }
 
   .app-action-button {
-    width: 100%;
     min-width: 0;
-  }
-
-  .app-action-controls {
-    width: 100%;
-    align-items: stretch;
-  }
-
-  .app-action-timestamp {
-    text-align: left;
+    min-height: 44px;
+    padding: 9px 14px;
   }
 }
