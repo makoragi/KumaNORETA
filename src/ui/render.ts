@@ -47,6 +47,7 @@ let activeCandidateMap: {
 } = {}
 
 function renderPositionSource(source: PositionSource): string {
+  if (source === 'last-known') return '前回の現在地'
   switch (source) {
     case 'browser':
       return 'GPS'
@@ -55,6 +56,18 @@ function renderPositionSource(source: PositionSource): string {
     case 'mock-fallback':
       return 'フォールバック'
   }
+}
+
+function renderLocationRecoveryHint(source: PositionSource): string {
+  if (source === 'last-known') {
+    return 'GPS が不安定だったため、直近 30 分以内の実測位置を使っています。再取得すると改善する場合があります。'
+  }
+
+  if (source === 'mock-fallback') {
+    return '現在地を取得できなかったため仮の位置を使っています。Safari のサイト位置情報権限を確認して再取得してください。'
+  }
+
+  return ''
 }
 
 function renderTripUpdatesStatus(status: GtfsRtCollectionFetchStatus): string {
@@ -553,6 +566,7 @@ export function renderApp(params: {
 
   const activeDelayPresentation = resolveDelayPresentation(activeTripUpdate, tripUpdatesFetchStatus)
   const locationModeSummary = renderLocationModeSummary(selectedLocationMode, locationDebugOptions)
+  const locationRecoveryHint = renderLocationRecoveryHint(diagnostics.positionSource)
   const busDetectionState = activeCandidate ? '検出中' : '探索中'
   const routeTitle = activeCandidate?.route.longName ?? 'まだ候補バスを特定できていません'
 
@@ -628,6 +642,7 @@ export function renderApp(params: {
                     <div>
                       <p class="location-panel-label">GPS / 位置取得</p>
                       <p class="location-panel-copy">現在は ${locationModeSummary}</p>
+                      ${locationRecoveryHint ? `<p class="muted">${locationRecoveryHint}</p>` : ''}
                     </div>
                     <button class="gps-button" type="button" id="refresh-location">
                       <span class="gps-button-icon" aria-hidden="true"></span>
@@ -650,6 +665,7 @@ export function renderApp(params: {
                   <div>
                     <p class="location-panel-label">GPS / 位置取得</p>
                     <p class="location-panel-copy">現在は ${locationModeSummary}</p>
+                    ${locationRecoveryHint ? `<p class="muted">${locationRecoveryHint}</p>` : ''}
                   </div>
                   <button class="gps-button" type="button" id="refresh-location">
                     <span class="gps-button-icon" aria-hidden="true"></span>
