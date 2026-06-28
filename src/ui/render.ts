@@ -863,6 +863,7 @@ export function renderApp(params: {
       </details>
 
       <section class="app-action-bar" aria-label="アプリ操作">
+        <p class="app-action-kicker"><span>KumaNOR</span><span class="app-action-kicker-accent">ETA</span></p>
         <button class="gps-button app-action-button" type="button" id="refresh-data">
           <span class="gps-button-icon" aria-hidden="true"></span>
           <span class="app-action-button-copy">
