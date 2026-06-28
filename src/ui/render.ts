@@ -76,7 +76,7 @@ function renderPositionSource(source: PositionSource): string {
   }
 }
 
-function renderLocationRecoveryHint(source: PositionSource): string {
+export function renderLocationRecoveryHint(source: PositionSource): string {
   if (source === 'last-known') {
     return 'GPS が不安定だったため、直近 30 分以内の実測位置を使っています。再取得すると改善する場合があります。'
   }
@@ -171,6 +171,43 @@ function renderLocationModeSummary(
   locationDebugOptions: LocationDebugOption[],
 ): string {
   return locationDebugOptions.find((option) => option.id === selectedLocationMode)?.label ?? 'GPSを使う'
+}
+
+function renderAccuracyLevel(accuracyMeters: number): { label: string; className: string; detail: string } {
+  if (accuracyMeters <= 25) {
+    return { label: '高精度', className: 'status-meter-high', detail: `精度 約${Math.round(accuracyMeters)}m` }
+  }
+
+  if (accuracyMeters <= 80) {
+    return { label: '標準', className: 'status-meter-mid', detail: `精度 約${Math.round(accuracyMeters)}m` }
+  }
+
+  return { label: '広め', className: 'status-meter-low', detail: `精度 約${Math.round(accuracyMeters)}m` }
+}
+
+function renderPositionSourceIcon(source: PositionSource): { label: string; className: string; detail: string } {
+  switch (source) {
+    case 'browser':
+      return { label: 'GPS', className: 'status-icon-gps', detail: '実測' }
+    case 'debug-preset':
+      return { label: 'Debug', className: 'status-icon-debug', detail: '固定地点' }
+    case 'last-known':
+      return { label: 'Keep', className: 'status-icon-keep', detail: '前回位置' }
+    case 'mock-fallback':
+      return { label: 'Mock', className: 'status-icon-mock', detail: '仮位置' }
+  }
+}
+
+function renderDetectionIcon(activeCandidate: BusCandidate | undefined, candidateCount: number): {
+  label: string
+  className: string
+  detail: string
+} {
+  if (activeCandidate) {
+    return { label: '検出', className: 'status-icon-detected', detail: `候補 ${candidateCount}件` }
+  }
+
+  return { label: '探索', className: 'status-icon-searching', detail: `候補 ${candidateCount}件` }
 }
 
 function captureDetailsOpenState(root: HTMLElement): Map<string, boolean> {
@@ -607,30 +644,37 @@ export function renderApp(params: {
 
   const activeDelayPresentation = resolveDelayPresentation(activeTripUpdate, tripUpdatesFetchStatus)
   const locationModeSummary = renderLocationModeSummary(selectedLocationMode, locationDebugOptions)
-  const locationRecoveryHint = renderLocationRecoveryHint(diagnostics.positionSource)
   const busDetectionState = activeCandidate ? '検出中' : '探索中'
   const routeTitle = activeCandidate?.route.longName ?? 'まだ候補バスを特定できていません'
   const activeOperatorThemeVars = activeCandidate ? buildOperatorThemeVars(activeCandidate.route.agencyId) : ''
+  const accuracyPresentation = renderAccuracyLevel(position.accuracyMeters)
+  const positionSourcePresentation = renderPositionSourceIcon(diagnostics.positionSource)
+  const detectionPresentation = renderDetectionIcon(activeCandidate, diagnostics.candidateCount)
 
   renderShell(
     root,
     'いま乗っとるバス、いつ着くと？',
     `
       <section class="status-strip">
-        <div class="status-chip">
-          <span class="status-chip-label">現在地</span>
-          <strong>精度 約${Math.round(position.accuracyMeters)}m</strong>
-          <span>緯度 ${position.latitude.toFixed(4)} / 経度 ${position.longitude.toFixed(4)}</span>
+        <div class="status-chip status-chip-compact" title="${accuracyPresentation.label} / ${accuracyPresentation.detail}">
+          <span class="status-chip-icon status-chip-icon-meter ${accuracyPresentation.className}" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+          <div class="status-chip-copy">
+            <span class="status-chip-detail">${accuracyPresentation.detail}</span>
+          </div>
         </div>
-        <div class="status-chip">
-          <span class="status-chip-label">位置ソース</span>
-          <strong>${renderPositionSource(diagnostics.positionSource)}</strong>
-          <span>車両更新 ${formatTime(diagnostics.vehicleFetchedAt)}</span>
+        <div class="status-chip status-chip-compact" title="${positionSourcePresentation.label} / ${positionSourcePresentation.detail}">
+          <span class="status-chip-icon ${positionSourcePresentation.className}" aria-hidden="true"></span>
+          <div class="status-chip-copy">
+            <span class="status-chip-detail">${positionSourcePresentation.detail}</span>
+          </div>
         </div>
-        <div class="status-chip">
-          <span class="status-chip-label">検出状態</span>
-          <strong>${busDetectionState}</strong>
-          <span>候補 ${diagnostics.candidateCount}件</span>
+        <div class="status-chip status-chip-compact" title="${detectionPresentation.label} / ${detectionPresentation.detail}">
+          <span class="status-chip-icon ${detectionPresentation.className}" aria-hidden="true"></span>
+          <div class="status-chip-copy">
+            <span class="status-chip-detail">${detectionPresentation.detail}</span>
+          </div>
         </div>
       </section>
 
@@ -680,17 +724,6 @@ export function renderApp(params: {
                     }
                   </div>
 
-                  <div class="location-panel">
-                    <div>
-                      <p class="location-panel-label">GPS / 位置取得</p>
-                      <p class="location-panel-copy">現在は ${locationModeSummary}</p>
-                      ${locationRecoveryHint ? `<p class="muted">${locationRecoveryHint}</p>` : ''}
-                    </div>
-                    <button class="gps-button" type="button" id="refresh-location">
-                      <span class="gps-button-icon" aria-hidden="true"></span>
-                      <span>GPSを取り直す</span>
-                    </button>
-                  </div>
                 </div>
               </details>
             `
@@ -703,17 +736,6 @@ export function renderApp(params: {
                   </div>
                 </div>
                 <div class="empty-panel"><p>${emptyState}</p></div>
-                <div class="location-panel">
-                  <div>
-                    <p class="location-panel-label">GPS / 位置取得</p>
-                    <p class="location-panel-copy">現在は ${locationModeSummary}</p>
-                    ${locationRecoveryHint ? `<p class="muted">${locationRecoveryHint}</p>` : ''}
-                  </div>
-                  <button class="gps-button" type="button" id="refresh-location">
-                    <span class="gps-button-icon" aria-hidden="true"></span>
-                    <span>GPSを取り直す</span>
-                  </button>
-                </div>
               </article>
             `
         }
@@ -721,7 +743,6 @@ export function renderApp(params: {
         <article class="card stack-card eta-card">
           <div class="section-heading section-heading-tight">
             <div>
-              <p class="panel-label panel-label-accent">ETA Focus</p>
               <h2>降車停留所と残り時間</h2>
             </div>
           </div>
@@ -745,7 +766,6 @@ export function renderApp(params: {
               ? `
                 <div class="eta-meta">
                   <p><span>残り距離</span><strong>約${Math.round(eta.remainingDistanceMeters)}m</strong></p>
-                  <p><span>推定方法</span><strong>${eta.source === 'distance-model' ? '距離モデル推定' : eta.source}</strong></p>
                 </div>
               `
               : '<p class="muted">乗車中のバスを特定すると ETA を表示します。</p>'
@@ -762,12 +782,7 @@ export function renderApp(params: {
       <details class="card collapsible-card" data-panel-id="candidates" ${renderDetailsOpenAttribute(detailsOpenStates, 'candidates', !selectedTripId)}>
         <summary>${candidateSummary}</summary>
         <div class="collapsible-body">
-          <div class="section-heading">
-            <div>
-              <h2>近いバス候補</h2>
-              <p class="muted">自動推定の候補です。違う場合は手動で選択してください。</p>
-            </div>
-          </div>
+          <p class="muted">自動推定の候補です。違う場合は手動で選択してください。</p>
           ${renderCandidateMap(mapCandidates)}
           ${
             candidates.length > 0
@@ -850,6 +865,10 @@ export function renderApp(params: {
             <p><strong>近距離一致:</strong> ${diagnostics.nearbyMatchedVehicles} 台</p>
             <p><strong>候補件数:</strong> ${diagnostics.candidateCount} 件</p>
             <p><strong>TripUpdates:</strong> ${renderTripUpdatesStatus(tripUpdatesFetchStatus)}</p>
+            <p><strong>現在地精度:</strong> 約${Math.round(position.accuracyMeters)}m</p>
+            <p><strong>位置モード:</strong> ${locationModeSummary}</p>
+            <p><strong>検出状態:</strong> ${busDetectionState}</p>
+            <p><strong>ETA推定方法:</strong> ${eta ? (eta.source === 'distance-model' ? '距離モデル推定' : eta.source) : '-'}</p>
             <p><strong>選択 tripId:</strong> ${selectedTripId ?? '-'}</p>
             <p><strong>選択 routeId:</strong> ${activeCandidate?.trip.routeId ?? '-'}</p>
             <p><strong>推測 tripId:</strong> ${estimatedCandidate?.trip.id ?? '-'}</p>
@@ -891,10 +910,6 @@ export function renderApp(params: {
         onSelectCandidate(tripId)
       }
     })
-  })
-
-  root.querySelector<HTMLButtonElement>('#refresh-location')?.addEventListener('click', () => {
-    void onRefreshLocation()
   })
 
   root.querySelector<HTMLButtonElement>('#refresh-data')?.addEventListener('click', () => {

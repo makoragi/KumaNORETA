@@ -290,6 +290,26 @@ h1 {
   border-radius: 20px;
 }
 
+.status-chip-compact {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.status-chip-copy {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.status-chip-detail {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .status-chip strong {
   font-size: 1rem;
 }
@@ -298,6 +318,186 @@ h1 {
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.status-chip-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  flex: none;
+}
+
+.status-chip-icon::before,
+.status-chip-icon::after {
+  content: '';
+  position: absolute;
+}
+
+.status-chip-icon-meter {
+  padding: 8px;
+  gap: 3px;
+  align-items: flex-end;
+  background: linear-gradient(180deg, rgb(190 47 47 / 10%), rgb(190 47 47 / 18%));
+}
+
+.status-chip-icon-meter i {
+  display: block;
+  width: 5px;
+  border-radius: 999px;
+  background: rgb(190 47 47 / 28%);
+}
+
+.status-meter-low i:nth-child(1) {
+  height: 8px;
+  background: var(--kumamoto-red);
+}
+
+.status-meter-low i:nth-child(2) {
+  height: 13px;
+}
+
+.status-meter-low i:nth-child(3) {
+  height: 18px;
+}
+
+.status-meter-mid i:nth-child(1) {
+  height: 8px;
+  background: var(--kumamoto-red);
+}
+
+.status-meter-mid i:nth-child(2) {
+  height: 13px;
+  background: var(--kumamoto-red);
+}
+
+.status-meter-mid i:nth-child(3) {
+  height: 18px;
+}
+
+.status-meter-high i {
+  background: var(--kumamoto-red);
+}
+
+.status-meter-high i:nth-child(1) {
+  height: 8px;
+}
+
+.status-meter-high i:nth-child(2) {
+  height: 13px;
+}
+
+.status-meter-high i:nth-child(3) {
+  height: 18px;
+}
+
+.status-icon-gps,
+.status-icon-debug,
+.status-icon-keep,
+.status-icon-mock,
+.status-icon-detected,
+.status-icon-searching {
+  background: linear-gradient(180deg, rgb(190 47 47 / 10%), rgb(190 47 47 / 18%));
+}
+
+.status-icon-gps::before {
+  inset: 10px;
+  border: 2px solid var(--kumamoto-red);
+  border-radius: 999px;
+}
+
+.status-icon-gps::after {
+  inset: 17px;
+  border-radius: 999px;
+  background: var(--kumamoto-red);
+  box-shadow:
+    0 -9px 0 -7px var(--kumamoto-red),
+    0 9px 0 -7px var(--kumamoto-red),
+    9px 0 0 -7px var(--kumamoto-red),
+    -9px 0 0 -7px var(--kumamoto-red);
+}
+
+.status-icon-debug::before {
+  inset: 11px 8px;
+  border: 2px solid var(--kumamoto-blue);
+  border-radius: 10px;
+}
+
+.status-icon-debug::after {
+  left: 14px;
+  top: 17px;
+  width: 10px;
+  height: 2px;
+  background: var(--kumamoto-blue);
+  box-shadow:
+    0 -5px 0 0 var(--kumamoto-blue),
+    0 5px 0 0 var(--kumamoto-blue);
+}
+
+.status-icon-keep::before {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--kumamoto-gold);
+  border-right-color: transparent;
+  border-radius: 999px;
+}
+
+.status-icon-keep::after {
+  top: 10px;
+  right: 9px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--kumamoto-gold);
+}
+
+.status-icon-mock::before {
+  width: 18px;
+  height: 18px;
+  border: 2px dashed var(--kumamoto-green);
+  border-radius: 999px;
+}
+
+.status-icon-mock::after {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--kumamoto-green);
+}
+
+.status-icon-detected::before,
+.status-icon-searching::before {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+}
+
+.status-icon-detected::before {
+  background: var(--kumamoto-green);
+}
+
+.status-icon-detected::after {
+  width: 10px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+}
+
+.status-icon-searching::before {
+  border: 2px solid var(--kumamoto-red);
+}
+
+.status-icon-searching::after {
+  width: 9px;
+  height: 2px;
+  right: 8px;
+  bottom: 10px;
+  background: var(--kumamoto-red);
+  transform: rotate(45deg);
+  transform-origin: center;
 }
 
 .status-chip-label,
@@ -1291,6 +1491,18 @@ select optgroup {
     min-height: 0;
   }
 
+  .status-chip-compact {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    justify-items: center;
+    padding: 10px 8px 9px;
+    text-align: center;
+  }
+
+  .status-chip-copy {
+    justify-items: center;
+  }
+
   .section-heading {
     margin-bottom: 14px;
   }
@@ -1417,18 +1629,20 @@ select optgroup {
     font-size: clamp(4rem, 24vw, 5.6rem);
   }
 
-  .status-chip span:last-child {
-    display: none;
-  }
-
-  .status-chip-label {
-    font-size: 0.64rem;
-    letter-spacing: 0.03em;
-  }
-
   .status-chip strong {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     line-height: 1.15;
+  }
+
+  .status-chip-detail {
+    font-size: 0.7rem;
+    line-height: 1.15;
+  }
+
+  .status-chip-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
   }
 
   .candidate-map {
