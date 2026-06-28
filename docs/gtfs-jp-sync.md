@@ -18,9 +18,9 @@
 
 1. Run on `schedule` and `workflow_dispatch`.
 2. Execute `scripts/sync-gtfs-jp.ps1` with the requested dataset id.
-3. Detect changes in `data/gtfs-jp/toshibus/` and `public/gtfs/toshibus-static.json`.
-4. Open or update a PR with the refreshed timetable data.
-5. Let the existing Pages deploy workflow publish the committed artifact after merge.
+3. Build the static site with the generated GTFS JSON in the Actions workspace.
+4. Upload `dist/` as the GitHub Pages artifact.
+5. Deploy the freshly generated artifact directly to GitHub Pages without committing large files back to Git.
 
 ## Follow-up items
 

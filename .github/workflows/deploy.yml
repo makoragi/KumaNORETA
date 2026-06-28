@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_TRANSIT_DATASET: ${{ vars.VITE_TRANSIT_DATASET || 'toshibus' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,9 +31,18 @@ jobs:
           cache: pnpm
       - uses: actions/configure-pages@v5
       - run: pnpm install --frozen-lockfile
+      - name: Generate static GTFS artifacts
+        shell: pwsh
+        run: |
+          $datasetId = $env:VITE_TRANSIT_DATASET
+          if ([string]::IsNullOrWhiteSpace($datasetId)) {
+            $datasetId = 'toshibus'
+          }
+
+          ./scripts/sync-gtfs-jp.ps1 -DatasetId $datasetId
       - run: pnpm build
         env:
-          VITE_TRANSIT_DATASET: ${{ vars.VITE_TRANSIT_DATASET || 'toshibus' }}
+          VITE_TRANSIT_DATASET: ${{ env.VITE_TRANSIT_DATASET }}
           VITE_GTFS_RT_TRIP_UPDATES_URL: ${{ vars.VITE_GTFS_RT_TRIP_UPDATES_URL || 'https://km.bus-vision.jp/realtime/toshibus_trip_update.bin' }}
           VITE_GTFS_RT_ALERTS_URL: ${{ vars.VITE_GTFS_RT_ALERTS_URL || 'https://km.bus-vision.jp/realtime/toshibus_alrt_update.bin' }}
           VITE_GTFS_RT_PROXY_URL: ${{ vars.VITE_GTFS_RT_PROXY_URL }}
