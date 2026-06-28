@@ -25,6 +25,9 @@ type GtfsRtConfig = {
 
 type ParsedVehiclePosition = {
   bearing?: number
+  currentStatus?: 'incoming-at' | 'stopped-at' | 'in-transit-to'
+  currentStopId?: string
+  currentStopSequence?: number
   latitude?: number
   longitude?: number
   timestamp?: number
@@ -227,9 +230,32 @@ function parseVehiclePositionMessage(reader: ProtoReader) {
         }
         reader.skip(wireType)
         break
+      case 3:
+        if (wireType === 0) {
+          parsed.currentStopSequence = reader.readVarint()
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 4:
+        if (wireType === 0) {
+          const status = reader.readVarint()
+          parsed.currentStatus =
+            status === 0 ? 'incoming-at' : status === 1 ? 'stopped-at' : 'in-transit-to'
+          break
+        }
+        reader.skip(wireType)
+        break
       case 5:
         if (wireType === 0) {
           parsed.timestamp = reader.readVarint()
+          break
+        }
+        reader.skip(wireType)
+        break
+      case 7:
+        if (wireType === 2) {
+          parsed.currentStopId = reader.readString()
           break
         }
         reader.skip(wireType)
@@ -564,6 +590,9 @@ function normalizeVehiclePositions(
     agencyId: operator.id,
     agencyName: operator.agencyName,
     vehicleId: normalizeEntityId(datasetId, operator.id, vehicle.vehicleId),
+    currentStopId: vehicle.currentStopId
+      ? normalizeEntityId(datasetId, operator.id, vehicle.currentStopId)
+      : undefined,
     tripId: normalizeEntityId(datasetId, operator.id, vehicle.tripId),
   }))
 }

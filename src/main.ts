@@ -145,13 +145,20 @@ async function bootstrap() {
       const tripUpdatesByTripId = buildTripUpdatesByTripId(tripUpdates)
       const position = positionResult.position
       const nearbyStops = findNearbyStops(position, staticData.stops)
-      const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes)
+      const candidates = rankBusCandidates(position, vehicles, staticData.trips, staticData.routes, staticData.stops)
       const estimatedCandidate = candidates.find((item) => item.isWithinMatchingRange)
       const rawDiagnostics = collectBusEstimationDiagnostics(position, vehicles, staticData.trips, staticData.routes)
 
       if (selectedTripId) {
         selectedCandidate =
-          findBusCandidateByTripId(selectedTripId, position, vehicles, staticData.trips, staticData.routes) ??
+          findBusCandidateByTripId(
+            selectedTripId,
+            position,
+            vehicles,
+            staticData.trips,
+            staticData.routes,
+            staticData.stops,
+          ) ??
           selectedCandidate
       } else {
         selectedCandidate = undefined

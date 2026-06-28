@@ -66,6 +66,9 @@ export type VehiclePosition = {
   latitude: number
   longitude: number
   bearing?: number
+  currentStopSequence?: number
+  currentStopId?: string
+  currentStatus?: 'incoming-at' | 'stopped-at' | 'in-transit-to'
   timestamp: Date
 }
 

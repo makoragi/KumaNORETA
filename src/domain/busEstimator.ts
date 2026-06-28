@@ -3,8 +3,63 @@ import type { BusCandidate, Coordinates, NearbyStop, Route, Stop, Trip, VehicleP
 const BASE_MATCHING_RANGE_METERS = 2_000
 const MAX_CANDIDATES = 3
 const MAX_NEARBY_STOPS = 3
+const SEGMENT_ALIGNMENT_RANGE_METERS = 250
+const STOP_ALIGNMENT_RANGE_METERS = 120
+
+type Point = { x: number; y: number }
+
+type VehicleStopContext =
+  | {
+      kind: 'segment'
+      previousStop: Stop
+      nextStop: Stop
+      previousStopIndex: number
+      nextStopIndex: number
+      distanceMeters: number
+      progress: number
+    }
+  | {
+      kind: 'stop'
+      stop: Stop
+      stopIndex: number
+      distanceMeters: number
+    }
 
 const toRadians = (degree: number) => (degree * Math.PI) / 180
+
+function toPoint(latitude: number, longitude: number, originLatitude: number): Point {
+  const metersPerLat = 111_320
+  const metersPerLon = 111_320 * Math.cos((originLatitude * Math.PI) / 180)
+
+  return {
+    x: longitude * metersPerLon,
+    y: latitude * metersPerLat,
+  }
+}
+
+function projectPointOntoSegment(point: Point, start: Point, end: Point) {
+  const segmentX = end.x - start.x
+  const segmentY = end.y - start.y
+  const segmentLengthSquared = segmentX ** 2 + segmentY ** 2
+
+  if (segmentLengthSquared === 0) {
+    return {
+      distance: Math.hypot(point.x - start.x, point.y - start.y),
+      progress: 0,
+    }
+  }
+
+  const rawProgress =
+    ((point.x - start.x) * segmentX + (point.y - start.y) * segmentY) / segmentLengthSquared
+  const progress = Math.min(1, Math.max(0, rawProgress))
+  const projectedX = start.x + segmentX * progress
+  const projectedY = start.y + segmentY * progress
+
+  return {
+    distance: Math.hypot(point.x - projectedX, point.y - projectedY),
+    progress,
+  }
+}
 
 export function distanceMeters(
   a: Pick<Coordinates, 'latitude' | 'longitude'>,
@@ -25,14 +80,118 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function calculateCandidateScore(distance: number, accuracyMeters: number, timestamp: Date): number {
+function indexTripStops(trip: Trip, stops: Stop[]) {
+  const stopsById = new Map(stops.map((stop) => [stop.id, stop]))
+
+  return trip.stopIds
+    .map((stopId, index) => ({
+      stop: stopsById.get(stopId),
+      index,
+    }))
+    .filter((entry): entry is { stop: Stop; index: number } => entry.stop !== undefined)
+}
+
+function findTripStopIndex(trip: Trip, stopId?: string, stopSequence?: number) {
+  if (stopId) {
+    const stopIdIndex = trip.stopIds.indexOf(stopId)
+    if (stopIdIndex >= 0) return stopIdIndex
+  }
+
+  if (stopSequence !== undefined) {
+    const sequenceIndex = trip.stopTimes?.findIndex((stopTime) => stopTime.stopSequence === stopSequence) ?? -1
+    if (sequenceIndex >= 0) return sequenceIndex
+
+    const fallbackIndex = stopSequence - 1
+    if (fallbackIndex >= 0 && fallbackIndex < trip.stopIds.length) {
+      return fallbackIndex
+    }
+  }
+
+  return -1
+}
+
+function resolveVehicleStopContext(
+  position: Coordinates,
+  vehicle: VehiclePosition,
+  trip: Trip,
+  stops: Stop[],
+): VehicleStopContext | undefined {
+  const stopIndex = findTripStopIndex(trip, vehicle.currentStopId, vehicle.currentStopSequence)
+  if (stopIndex < 0) return undefined
+
+  const tripStops = indexTripStops(trip, stops)
+  const currentEntry = tripStops.find((entry) => entry.index === stopIndex)
+  if (!currentEntry) return undefined
+
+  const status = vehicle.currentStatus ?? 'in-transit-to'
+  if (status === 'stopped-at' || status === 'incoming-at') {
+    return {
+      kind: 'stop',
+      stop: currentEntry.stop,
+      stopIndex,
+      distanceMeters: distanceMeters(position, currentEntry.stop),
+    }
+  }
+
+  const previousEntry = tripStops.find((entry) => entry.index === stopIndex - 1)
+  if (!previousEntry) {
+    return {
+      kind: 'stop',
+      stop: currentEntry.stop,
+      stopIndex,
+      distanceMeters: distanceMeters(position, currentEntry.stop),
+    }
+  }
+
+  const referenceLatitude = position.latitude
+  const riderPoint = toPoint(position.latitude, position.longitude, referenceLatitude)
+  const previousPoint = toPoint(previousEntry.stop.latitude, previousEntry.stop.longitude, referenceLatitude)
+  const nextPoint = toPoint(currentEntry.stop.latitude, currentEntry.stop.longitude, referenceLatitude)
+  const projection = projectPointOntoSegment(riderPoint, previousPoint, nextPoint)
+
+  return {
+    kind: 'segment',
+    previousStop: previousEntry.stop,
+    nextStop: currentEntry.stop,
+    previousStopIndex: previousEntry.index,
+    nextStopIndex: currentEntry.index,
+    distanceMeters: projection.distance,
+    progress: projection.progress,
+  }
+}
+
+function buildSegmentReason(context: VehicleStopContext | undefined) {
+  if (!context) return 'GTFS-RT の停留所進捗は未使用'
+
+  if (context.kind === 'stop') {
+    return `GTFS-RT 上は「${context.stop.name}」付近`
+  }
+
+  return `GTFS-RT 上は「${context.previousStop.name} → ${context.nextStop.name}」の区間`
+}
+
+function calculateCandidateScore(
+  distance: number,
+  accuracyMeters: number,
+  timestamp: Date,
+  stopContext?: VehicleStopContext,
+): number {
   const matchingRange = BASE_MATCHING_RANGE_METERS + accuracyMeters
   const distanceScore = clamp(1 - distance / matchingRange, 0, 1)
   const accuracyPenalty = clamp(accuracyMeters / 200, 0, 0.25)
   const vehicleAgeSeconds = Math.max(0, (Date.now() - timestamp.getTime()) / 1_000)
   const freshnessScore = clamp(1 - vehicleAgeSeconds / 180, 0.2, 1)
+  const segmentAlignmentScore = stopContext
+    ? stopContext.kind === 'segment'
+      ? clamp(1 - stopContext.distanceMeters / (SEGMENT_ALIGNMENT_RANGE_METERS + accuracyMeters), 0, 1)
+      : clamp(1 - stopContext.distanceMeters / (STOP_ALIGNMENT_RANGE_METERS + accuracyMeters), 0, 1)
+    : 0.5
 
-  return clamp(distanceScore * 0.8 + freshnessScore * 0.2 - accuracyPenalty, 0.1, 0.99)
+  return clamp(
+    distanceScore * 0.55 + segmentAlignmentScore * 0.3 + freshnessScore * 0.15 - accuracyPenalty,
+    0.1,
+    0.99,
+  )
 }
 
 function buildBusCandidates(
@@ -40,6 +199,7 @@ function buildBusCandidates(
   vehicles: VehiclePosition[],
   trips: Trip[],
   routes: Route[],
+  stops: Stop[],
 ): BusCandidate[] {
   const tripsById = new Map(trips.map((trip) => [trip.id, trip]))
   const routesById = new Map(routes.map((route) => [route.id, route]))
@@ -51,9 +211,11 @@ function buildBusCandidates(
       if (!trip || !route) return undefined
 
       const distance = distanceMeters(position, vehicle)
-      const score = calculateCandidateScore(distance, position.accuracyMeters, vehicle.timestamp)
+      const stopContext = resolveVehicleStopContext(position, vehicle, trip, stops)
+      const score = calculateCandidateScore(distance, position.accuracyMeters, vehicle.timestamp, stopContext)
       const matchingRange = BASE_MATCHING_RANGE_METERS + position.accuracyMeters
       const isWithinMatchingRange = distance <= matchingRange
+      const segmentReason = buildSegmentReason(stopContext)
 
       return {
         trip,
@@ -64,14 +226,14 @@ function buildBusCandidates(
         confidence: score,
         isWithinMatchingRange,
         reason: isWithinMatchingRange
-          ? `現在地の推定範囲である約${Math.round(matchingRange)}m以内にいます`
-          : '推定範囲外ですが、取得できた車両の中では現在地に近い候補です',
+          ? `現在地から約${Math.round(distance)}m。${segmentReason}`
+          : `現在地から約${Math.round(distance)}mで候補範囲外。${segmentReason}`,
       }
     })
     .filter((candidate): candidate is BusCandidate => candidate !== undefined)
     .sort((a, b) => {
-      if (a.distanceMeters !== b.distanceMeters) return a.distanceMeters - b.distanceMeters
       if (b.score !== a.score) return b.score - a.score
+      if (a.distanceMeters !== b.distanceMeters) return a.distanceMeters - b.distanceMeters
       return b.vehicle.timestamp.getTime() - a.vehicle.timestamp.getTime()
     })
 }
@@ -81,8 +243,9 @@ export function rankBusCandidates(
   vehicles: VehiclePosition[],
   trips: Trip[],
   routes: Route[],
+  stops: Stop[],
 ): BusCandidate[] {
-  return buildBusCandidates(position, vehicles, trips, routes).slice(0, MAX_CANDIDATES)
+  return buildBusCandidates(position, vehicles, trips, routes, stops).slice(0, MAX_CANDIDATES)
 }
 
 export function findBusCandidateByTripId(
@@ -91,8 +254,9 @@ export function findBusCandidateByTripId(
   vehicles: VehiclePosition[],
   trips: Trip[],
   routes: Route[],
+  stops: Stop[],
 ): BusCandidate | undefined {
-  return buildBusCandidates(position, vehicles, trips, routes).find((candidate) => candidate.trip.id === tripId)
+  return buildBusCandidates(position, vehicles, trips, routes, stops).find((candidate) => candidate.trip.id === tripId)
 }
 
 export function collectBusEstimationDiagnostics(
@@ -139,6 +303,7 @@ export function estimateCurrentBus(
   vehicles: VehiclePosition[],
   trips: Trip[],
   routes: Route[],
+  stops: Stop[],
 ): BusCandidate | undefined {
-  return rankBusCandidates(position, vehicles, trips, routes)[0]
+  return rankBusCandidates(position, vehicles, trips, routes, stops)[0]
 }
