@@ -2,37 +2,69 @@
 
 ## GTFS-JP
 
-- 配置場所: `data/gtfs-jp/toshibus/`
-- 配信元: `https://km.bus-vision.jp/gtfs/toshibus/gtfsFeed`
-- 想定ファイル: `stops.txt`, `routes.txt`, `trips.txt`, `stop_times.txt`, `calendar.txt`, `agency.txt`
-- 同期コマンド: `pnpm gtfs:sync`
-- ブラウザ読込用の生成物: `public/gtfs/toshibus-static.json`
-- 利用想定: 停留所、路線、便、停車順、営業日情報を取得する
+- 事業者ごとの取得元は `config/transit-operators.json` に定義している
+  - `toshibus`: `https://km.bus-vision.jp/gtfs/toshibus/gtfsFeed`
+  - `sankobus`: `https://km.bus-vision.jp/gtfs/sankobus/gtfsFeed`
+  - `kumabus`: `https://km.bus-vision.jp/gtfs/kumabus/gtfsFeed`
+  - `dentetsu`: `https://km.bus-vision.jp/gtfs/dentetsu/gtfsFeed`
+- 展開先: `data/gtfs-jp/{operatorId}/`
+- 主なファイル: `stops.txt`, `routes.txt`, `trips.txt`, `stop_times.txt`, `calendar.txt`, `agency.txt`
+- 同期コマンド:
+  - 単独事業者: `pnpm gtfs:sync`
+  - 全事業者結合: `pnpm gtfs:sync:all`
+- ブラウザ向け生成物:
+  - 単独事業者: `public/gtfs/{operatorId}-static.json`
+  - 全事業者結合: `public/gtfs/kumamoto-buses-static.json`
 
 ## GTFS-Realtime
 
-- 配置場所: Cloudflare Workerのエッジプロキシ経由で取得
-- 種別: VehiclePositions, TripUpdates, ServiceAlerts
-- 利用想定: WorkerがCORSを付与し、ブラウザが15秒ごとに取得する
-- 熊本都市バスの公開GTFS-RT:
-  - `TripUpdates`: `https://km.bus-vision.jp/realtime/toshibus_trip_update.bin`
-  - `VehiclePositions`: `https://km.bus-vision.jp/realtime/toshibus_vpos_update.bin`
-  - `Alerts`: `https://km.bus-vision.jp/realtime/toshibus_alrt_update.bin`
-- `VehiclePosition` 取得設定:
-  - `worker/`をCloudflare Workersへデプロイし、Repository Variable `VITE_GTFS_RT_PROXY_URL` にWorkerのURLを設定する
-  - ブラウザは `${VITE_GTFS_RT_PROXY_URL}/vehicle-positions` を15秒ごとに読み込む
-  - Worker側では上流への負荷を抑えながら鮮度を保つため10秒だけキャッシュする
-  - `CLOUDFLARE_API_TOKEN`と`CLOUDFLARE_ACCOUNT_ID`をRepository Secretsに設定すると専用ワークフローでWorkerをデプロイできる
-  - `VITE_GTFS_RT_VEHICLE_POSITIONS_URL`: ブラウザが読むVehiclePositions URLを明示的に変更する場合に使用
-  - GitHub Actionsでは同じRepository Variableを上流VehiclePositionsの取得URLとして使用する
-  - `VITE_GTFS_RT_TRIP_UPDATES_URL`: TripUpdates の配信URL
-  - `VITE_GTFS_RT_ALERTS_URL`: Alerts の配信URL
-  - `VITE_GTFS_RT_USE_MOCK`: `false` にすると実データ取得を有効化。未設定または `false` 以外はモックを使う
-  - `VITE_GTFS_RT_API_KEY`: 必要な場合のAPIキー
-  - `VITE_GTFS_RT_API_KEY_HEADER`: APIキー送信ヘッダ名。既定値は `x-api-key`
-  - `VITE_GTFS_RT_AUTH_TOKEN`: Bearer トークンが必要な場合に使用
+- 上流フィード種別:
+  - `VehiclePositions`
+  - `TripUpdates`
+  - `Alerts` (`ServiceAlerts`)
+- 熊本の各事業者ごとに上流 URL は `config/transit-operators.json` に定義している
+
+### Cloudflare Worker でホストしているもの
+
+- `VITE_GTFS_RT_PROXY_URL` には Cloudflare Worker のベース URL を設定する
+- Worker 実装は `worker/src/index.js`
+- Worker が公開しているエンドポイントは次の 2 系統のみ
+  - `${VITE_GTFS_RT_PROXY_URL}/vehicle-positions`
+  - `${VITE_GTFS_RT_PROXY_URL}/trip-updates`
+- 事業者別エンドポイントもある
+  - `${VITE_GTFS_RT_PROXY_URL}/vehicle-positions/{operatorId}`
+  - `${VITE_GTFS_RT_PROXY_URL}/trip-updates/{operatorId}`
+- 現状、`/alerts` エンドポイントは Worker に存在しない
+
+### フロントエンドで実際に使っているもの
+
+- `fetchVehiclePositions()` は Worker または上流の `VehiclePositions` を読む
+- `fetchTripUpdatesWithStatus()` は Worker または上流の `TripUpdates` を読む
+- どちらも実装は `src/services/gtfsRt.ts` にある
+- 対象事業者は `VITE_TRANSIT_DATASET` に応じて切り替わる
+  - 単独事業者ならその事業者のみ読む
+  - `all` なら `config/transit-operators.json` の全事業者を読む
+- `Alerts` を取得する処理は現状存在しない
+
+### 環境変数の意味
+
+- `VITE_GTFS_RT_PROXY_URL`: Cloudflare Worker のベース URL。VehiclePositions と TripUpdates の両方で使う
+- `VITE_GTFS_RT_VEHICLE_POSITIONS_URL`: `toshibus` 単独表示時に限り、VehiclePositions 直取得先を上書きする場合に使う
+- `VITE_GTFS_RT_TRIP_UPDATES_URL`: `toshibus` 単独表示時に限り、TripUpdates 直取得先を上書きする場合に使う
+- `VITE_GTFS_RT_ALERTS_URL`: 型定義にはあるが、現状のアプリでは未使用
+- `VITE_GTFS_RT_USE_MOCK`: `false` のときだけ実データを使う。それ以外はモック
+- `VITE_GTFS_RT_API_KEY`: 必要な場合の API キー
+- `VITE_GTFS_RT_API_KEY_HEADER`: API キー送信ヘッダ名。既定値は `x-api-key`
+- `VITE_GTFS_RT_AUTH_TOKEN`: Bearer トークンが必要な場合に使う
+
+### Cloudflare Worker の設定
+
+- Worker 名と上流 URL 定義は `worker/wrangler.toml` にある
+- 現状の `vars` にあるのは VehiclePositions / TripUpdates 用のみ
+- 事業者別にも `*_TOSHIBUS`, `*_SANKOBUS`, `*_KUMABUS`, `*_DENTETSU` が定義されている
+- `Alerts` 用の Worker 環境変数は定義されていない
 
 ## サンプルデータ
 
 - 配置場所: `data/samples/`
-- 用途: 開発・テスト用の最小データセット
+- 用途: 開発・検証用のサンプルデータセット
